@@ -12,7 +12,7 @@ public static class Program
       {
          AnsiConsole.Write(
              new FigletText("Process Tracker")
-                 .Color(Color.Blue)
+                 .Color(Color.Green)
                  .Centered());
          AnsiConsole.WriteLine();
       }
@@ -35,7 +35,9 @@ public static class Program
              .WithDescription("List all tracked process pairs");
 
          config.AddCommand<MonitorCommand>("monitor")
-             .WithDescription("Start monitoring mode with live updates");
+             .WithDescription("Start monitoring mode with live updates")
+             .WithExample(["monitor", "--interval", "5", "--auto-exit", "60"])
+             .WithAlias("m");
 
          config.AddCommand<StopCommand>("stop")
              .WithDescription("Stop the process tracker service");

@@ -5,47 +5,53 @@ using ProcessTracker.Services;
 namespace ProcessTracker.Cli.Services;
 
 /// <summary>
-/// Manages ProcessTrackerService instances to ensure they continue running across commands
+/// Manages a single instance of the ProcessMonitorService to ensure continuity across commands
 /// </summary>
 public static class ServiceManager
 {
    private static ProcessMonitorService? _serviceInstance;
    private static readonly object _lock = new();
+   private static bool _initialized = false;
 
    /// <summary>
-   /// Gets or creates the ProcessTrackerService singleton instance
+   /// Gets or creates the singleton ProcessMonitorService instance
    /// </summary>
-   /// <param name="quietMode">Whether to suppress output messages</param>
+   /// <param name="quietMode">Whether to suppress output</param>
    /// <returns>The service instance and whether it was newly created</returns>
    public static (ProcessMonitorService Service, bool WasCreated) GetOrCreateService(bool quietMode = false)
    {
       lock (_lock)
       {
-         if (_serviceInstance != null)
+         if (_serviceInstance is { } && !_serviceInstance.IsAlreadyRunning)
             return (_serviceInstance, false);
 
+         if (_serviceInstance is { })
+         {
+            try
+            {
+               _serviceInstance.Dispose();
+            }
+            catch
+            {
+            }
+            _serviceInstance = null;
+         }
+
          var logger = new CliLogger();
-         var monitor = new ProcessMonitor(logger);
+         var monitor = new ProcessMonitor(TimeSpan.FromSeconds(2), logger);
          var repository = new ProcessRepository();
          var singleInstance = new SingleInstanceManager(logger);
 
-         _serviceInstance = new ProcessMonitorService(monitor, repository, singleInstance, logger);
+         _serviceInstance = new ProcessMonitorService(
+             monitor, repository, singleInstance, logger);
+         _initialized = true;
 
          return (_serviceInstance, true);
       }
    }
 
    /// <summary>
-   /// Checks if the service is already running in another process
-   /// </summary>
-   public static bool IsServiceRunningInAnotherProcess()
-   {
-      var (service, _) = GetOrCreateService(true);
-      return service.IsAlreadyRunning;
-   }
-
-   /// <summary>
-   /// Shuts down the service and releases resources
+   /// Explicitly shuts down the service when the application is exiting
    /// </summary>
    public static void ShutdownService()
    {
@@ -54,8 +60,26 @@ public static class ServiceManager
          if (_serviceInstance == null)
             return;
 
-         _serviceInstance.Shutdown();
-         _serviceInstance = null;
+         try
+         {
+            _serviceInstance.Shutdown();
+         }
+         finally
+         {
+            _serviceInstance = null;
+            _initialized = false;
+         }
+      }
+   }
+
+   /// <summary>
+   /// Returns whether the service is currently initialized
+   /// </summary>
+   public static bool IsServiceInitialized()
+   {
+      lock (_lock)
+      {
+         return _initialized && _serviceInstance != null;
       }
    }
 }

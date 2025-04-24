@@ -36,6 +36,8 @@ public class ProcessMonitorService : IDisposable
       _singleInstance = new(_logger);
       _monitor = new(_logger);
       _repository = new();
+
+      ValidateAndCleanupStoredProcesses();
    }
 
    /// <summary>
@@ -47,8 +49,6 @@ public class ProcessMonitorService : IDisposable
       SingleInstanceManager singleInstance,
       IProcessTrackerLogger logger)
    {
-      _repository?.LoadAll();
-
       if (_singleInstance?.IsAlreadyRunning ?? false)
          return;
 
@@ -59,7 +59,96 @@ public class ProcessMonitorService : IDisposable
 
       _monitor.ProcessPairTerminated += OnProcessPairTerminated;
 
+      ValidateAndCleanupStoredProcesses();
+
       KeepInstanceAlive();
+   }
+
+   /// <summary>
+   /// Validates stored process pairs and removes any that refer to non-existent processes
+   /// </summary>
+   private void ValidateAndCleanupStoredProcesses()
+   {
+      if (IsAlreadyRunning)
+         return;
+
+      try
+      {
+         _logger.Info("Validating stored process pairs...");
+
+         var allPairs = _repository.LoadAll();
+         if (allPairs.Count == 0)
+         {
+            _logger.Info("No stored process pairs found");
+            return;
+         }
+
+         var invalidPairs = new List<ProcessPair>();
+
+         foreach (var pair in allPairs)
+         {
+            bool mainExists = IsProcessRunning(pair.MainProcessId);
+            bool childExists = IsProcessRunning(pair.ChildProcessId);
+
+            if (!mainExists)
+            {
+               _logger.Info($"Main process {pair.MainProcessName} (ID: {pair.MainProcessId}) no longer exists");
+
+               if (childExists)
+               {
+                  _logger.Warning($"Orphaned child process found: {pair.ChildProcessName} (ID: {pair.ChildProcessId})");
+                  _logger.Info($"Terminating orphaned child process...");
+
+                  try
+                  {
+                     var process = Process.GetProcessById(pair.ChildProcessId);
+                     if (!process.HasExited)
+                     {
+                        process.CloseMainWindow();
+                        if (!process.WaitForExit(3000))
+                           process.Kill();
+                     }
+
+                     _logger.Info($"Successfully terminated orphaned child process");
+                  }
+                  catch (Exception ex)
+                  {
+                     _logger.Error($"Failed to terminate orphaned child process: {ex.Message}");
+                  }
+               }
+
+               invalidPairs.Add(pair);
+            }
+            else if (!childExists)
+            {
+               _logger.Info($"Child process {pair.ChildProcessName} (ID: {pair.ChildProcessId}) no longer exists");
+               invalidPairs.Add(pair);
+            }
+            else
+            {
+               _logger.Info($"Valid process pair found: {pair.MainProcessName} ({pair.MainProcessId}) -> {pair.ChildProcessName} ({pair.ChildProcessId})");
+            }
+         }
+
+         if (invalidPairs.Count > 0)
+         {
+            _logger.Info($"Removing {invalidPairs.Count} invalid process pairs");
+
+            foreach (var pair in invalidPairs)
+               allPairs.Remove(pair);
+
+            _repository.SaveAll(allPairs);
+            _logger.Info("Cleanup of invalid process pairs completed");
+         }
+         else
+         {
+            _logger.Info("All stored process pairs are valid");
+         }
+      }
+      catch (Exception ex)
+      {
+         _logger.Error($"Error during process pair validation: {ex.Message}");
+      }
    }
 
    private void LoadAndStartMonitoring()
@@ -68,7 +157,10 @@ public class ProcessMonitorService : IDisposable
       foreach (var pair in pairs)
       {
          if (IsProcessRunning(pair.MainProcessId) && IsProcessRunning(pair.ChildProcessId))
+         {
+            _logger.Info($"Starting monitoring for stored pair: {pair.MainProcessName} ({pair.MainProcessId}) -> {pair.ChildProcessName} ({pair.ChildProcessId})");
             _monitor.StartMonitoring(pair);
+         }
       }
    }
 

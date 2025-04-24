@@ -58,10 +58,18 @@ public class MonitorSettings : BasicCommandSettings
    [DefaultValue(3)]
    public int RefreshInterval { get; set; }
 
+   [CommandOption("-a|--auto-exit")]
+   [Description("Automatically exit monitoring after specified seconds with no processes (0 to disable)")]
+   [DefaultValue(0)]
+   public int AutoExitTimeout { get; set; }
+
    public override ValidationResult Validate()
    {
       if (RefreshInterval <= 0)
          return ValidationResult.Error("Refresh interval must be greater than 0.");
+
+      if (AutoExitTimeout < 0)
+         return ValidationResult.Error("Auto-exit timeout must be greater than or equal to 0.");
 
       return ValidationResult.Success();
    }
