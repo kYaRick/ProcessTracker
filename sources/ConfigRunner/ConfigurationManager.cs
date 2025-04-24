@@ -18,9 +18,19 @@ public class ConfigurationManager : IConfigurationManager
    /// Creates a new configuration manager
    /// </summary>
    /// <param name="configurationType">Type of configuration storage</param>
-   /// <param name="applicationName">Name of the application</param>
    /// <exception cref="ArgumentException">Thrown when parameters are invalid</exception>
    /// <exception cref="Exception">Failed to create directory</exception>
+   public ConfigurationManager(ConfigurationType configurationType)
+   {
+      var rootPath = FileSystemUtilities.GetRootPath(configurationType);
+
+      ConfigurationDirectory = Path.Combine(rootPath, ConfigurationConstants.APPLICATION_ROOT_DIR);
+
+      FileSystemUtilities.EnsureDirectoryExists(ConfigurationDirectory);
+   }
+
+   /// <inheritdoc cref="ConfigurationManager(ConfigurationType)"/>
+   /// <param name="applicationName">Name of the application</param>
    public ConfigurationManager(ConfigurationType configurationType, string applicationName)
    {
       if (string.IsNullOrWhiteSpace(applicationName))

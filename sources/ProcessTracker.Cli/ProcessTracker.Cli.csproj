@@ -1,26 +1,27 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<OutputType>Library</OutputType>
+		<OutputType>Exe</OutputType>
 		<TargetFramework>net9.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<BaseOutputPath>$(SolutionDir)bin\projects\$(AssemblyName)</BaseOutputPath>
-		<ApplicationIcon>Assets\process-tracker-core.ico</ApplicationIcon>
+		<ApplicationIcon>Assets\process-tracker-cli.ico</ApplicationIcon>
 		<SatelliteResourceLanguages>en</SatelliteResourceLanguages>
-		<PackageIcon>process-tracker-core.png</PackageIcon>
+		<PackageIcon>process-tracker-cli.png</PackageIcon>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<Content Include="Assets\process-tracker-core.ico" />
+		<Content Include="Assets\process-tracker-cli.ico" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\ConfigRunner\ConfigRunner.csproj" />
+		<PackageReference Include="Spectre.Console" Version="0.50.1-preview.0.5" />
+		<PackageReference Include="Spectre.Console.Cli" Version="0.50.1-preview.0.5" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <None Update="Assets\process-tracker-core.png">
+	  <None Update="Assets\process-tracker-cli.png">
 	    <Pack>True</Pack>
 	    <PackagePath>\</PackagePath>
 	  </None>
