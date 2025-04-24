@@ -1,0 +1,220 @@
+﻿using ProcessTracker.Models;
+using System.Collections.Concurrent;
+using System.Diagnostics;
+
+namespace ProcessTracker.Processes;
+
+/// <summary>
+/// Monitors parent-child process relationships and detects when parent processes terminate
+/// </summary>
+public class ProcessMonitor : IDisposable
+{
+   private readonly ConcurrentDictionary<int, MonitoredProcessInfo> _monitoredProcesses = new();
+   private readonly CancellationTokenSource _cts = new();
+   private Task? _monitoringTask;
+   private readonly TimeSpan _checkInterval = TimeSpan.FromSeconds(5);
+   private readonly IProcessTrackerLogger _logger;
+   private bool _isDisposed;
+
+   /// <summary>
+   /// Occurs when a parent process has terminated and its child process should be terminated
+   /// </summary>
+   public event EventHandler<ProcessPair>? ProcessPairTerminated;
+
+   /// <summary>
+   /// Creates a new process monitor with the default check interval
+   /// </summary>
+   public ProcessMonitor(IProcessTrackerLogger logger) : this(TimeSpan.FromSeconds(5), logger) { }
+
+   /// <summary>
+   /// Creates a new process monitor with a custom check interval
+   /// </summary>
+   /// <param name="checkInterval">How frequently to check if processes are still running</param>
+   public ProcessMonitor(TimeSpan checkInterval, IProcessTrackerLogger logger)
+   {
+      _checkInterval = checkInterval;
+      StartMonitoringTask();
+   }
+
+   private void StartMonitoringTask() =>
+      _monitoringTask = Task.Run(async () =>
+      {
+         try
+         {
+            while (!_cts.Token.IsCancellationRequested)
+            {
+               await CheckProcessesAsync();
+               await Task.Delay(_checkInterval, _cts.Token);
+            }
+         }
+         catch (OperationCanceledException) { }
+         catch (Exception ex)
+         {
+            _logger.Error($"Error in monitoring task: {ex}");
+         }
+      }, _cts.Token);
+
+   /// <summary>
+   /// Starts monitoring a parent-child process pair
+   /// </summary>
+   /// <param name="pair">The process pair to monitor</param>
+   /// <returns>True if monitoring was started successfully, false otherwise</returns>
+   public bool StartMonitoring(ProcessPair pair)
+   {
+      if (pair is null || pair.MainProcessId <= 0 || pair.ChildProcessId <= 0)
+         return false;
+
+      if (!TryGetProcess(pair.MainProcessId, out _) || !TryGetProcess(pair.ChildProcessId, out _))
+         return false;
+
+      var info = new MonitoredProcessInfo
+      {
+         Pair = pair,
+         StartTime = DateTime.UtcNow
+      };
+
+      return _monitoredProcesses.TryAdd(pair.MainProcessId, info);
+   }
+
+   /// <summary>
+   /// Stops monitoring a parent-child process pair
+   /// </summary>
+   /// <param name="pair">The process pair to stop monitoring</param>
+   /// <returns>True if monitoring was stopped successfully, false otherwise</returns>
+   public bool StopMonitoring(ProcessPair pair)
+   {
+      if (pair is null || pair.MainProcessId <= 0)
+         return false;
+
+      return _monitoredProcesses.TryRemove(pair.MainProcessId, out _);
+   }
+
+   /// <summary>
+   /// Gets all currently monitored process pairs
+   /// </summary>
+   /// <returns>List of monitored process pairs</returns>
+   public IReadOnlyList<ProcessPair> GetMonitoredProcesses() =>
+      _monitoredProcesses.Values
+         .Select(info => info.Pair)
+         .ToList();
+
+   private async Task CheckProcessesAsync()
+   {
+      ///~> Take a snapshot of current processes to avoid modification during enumeration ;)
+      var processesToCheck = _monitoredProcesses.ToArray();
+
+      foreach (var kvp in processesToCheck)
+      {
+         var mainProcessId = kvp.Key;
+         var info = kvp.Value;
+         var pair = info.Pair;
+
+         var mainProcessRunning = IsProcessRunning(pair.MainProcessId);
+
+         if (!mainProcessRunning)
+         {
+            var childProcessRunning = IsProcessRunning(pair.ChildProcessId);
+
+            if (childProcessRunning)
+            {
+               ProcessPairTerminated?.Invoke(this, pair);
+
+               await TerminateProcessAsync(pair.ChildProcessId);
+            }
+
+            _monitoredProcesses.TryRemove(mainProcessId, out _);
+         }
+      }
+   }
+
+   private bool IsProcessRunning(int processId) =>
+      TryGetProcess(processId, out _);
+
+   private bool TryGetProcess(int processId, out Process? process)
+   {
+      process = null;
+      try
+      {
+         process = Process.GetProcessById(processId);
+         return !process.HasExited;
+      }
+      catch (ArgumentException)
+      {
+         return false;
+      }
+      catch (InvalidOperationException)
+      {
+         return false;
+      }
+      catch (Exception ex)
+      {
+         _logger.Error($"Error checking process {processId}: {ex.Message}");
+         return false;
+      }
+   }
+
+   private async Task TerminateProcessAsync(int processId)
+   {
+      try
+      {
+         if (TryGetProcess(processId, out var process) && process is { })
+         {
+            _logger.Info($"Attempting to gracefully terminate process {process.ProcessName} (ID: {processId})");
+
+            if (process.CloseMainWindow())
+            {
+               var exited = await Task
+                  .Run(() => process.WaitForExit(3000));
+
+               if (!exited)
+               {
+                  _logger.Warning($"Process {processId} did not terminate gracefully, forcing termination");
+                  process.Kill();
+               }
+               else
+               {
+                  _logger.Info($"Process {processId} terminated gracefully");
+               }
+            }
+            else
+            {
+               _logger.Warning($"Cannot close main window for process {processId}, forcing termination");
+               process.Kill();
+            }
+         }
+      }
+      catch (Exception ex)
+      {
+         _logger.Error($"Error terminating process {processId}: {ex.Message}");
+      }
+   }
+
+   protected virtual void Dispose(bool disposing)
+   {
+      if (!_isDisposed)
+      {
+         if (disposing)
+         {
+            _cts.Cancel();
+
+            try
+            {
+               if (_monitoringTask is { })
+                  Task.WaitAny([_monitoringTask], 1000);
+            }
+            catch { }
+
+            _cts.Dispose();
+         }
+
+         _isDisposed = true;
+      }
+   }
+
+   public void Dispose()
+   {
+      Dispose(true);
+      GC.SuppressFinalize(this);
+   }
+}
+
