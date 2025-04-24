@@ -9,6 +9,7 @@ namespace ProcessTracker.Services;
 /// </summary>
 public class ProcessMonitorService : IDisposable
 {
+   private static ProcessMonitorService? _instance = null;
    private readonly SingleInstanceManager _singleInstance;
    private readonly ProcessMonitor _monitor;
    private readonly ProcessRepository _repository;
@@ -23,9 +24,15 @@ public class ProcessMonitorService : IDisposable
    /// <summary>
    /// Creates a new process monitor service with default dependencies
    /// </summary>
-   public ProcessMonitorService()
+   public ProcessMonitorService() : this(new ProcessLogs()) { }
+
+   /// <inheritdoc cref="ProcessMonitorService"/>
+   public ProcessMonitorService(IProcessTrackerLogger logger)
    {
-      _logger = new ProcessLogs();
+      if (_singleInstance?.IsAlreadyRunning ?? false)
+         return;
+
+      _logger = logger;
       _singleInstance = new(_logger);
       _monitor = new(_logger);
       _repository = new();
@@ -40,6 +47,11 @@ public class ProcessMonitorService : IDisposable
       SingleInstanceManager singleInstance,
       IProcessTrackerLogger logger)
    {
+      _repository?.LoadAll();
+
+      if (_singleInstance?.IsAlreadyRunning ?? false)
+         return;
+
       _monitor = monitor;
       _repository = repository;
       _singleInstance = singleInstance;
@@ -47,9 +59,7 @@ public class ProcessMonitorService : IDisposable
 
       _monitor.ProcessPairTerminated += OnProcessPairTerminated;
 
-
-      if (!_singleInstance.IsAlreadyRunning)
-         LoadAndStartMonitoring();
+      KeepInstanceAlive();
    }
 
    private void LoadAndStartMonitoring()
@@ -145,11 +155,13 @@ public class ProcessMonitorService : IDisposable
    /// </summary>
    public void Shutdown()
    {
-      if (IsAlreadyRunning)
+      if (_isDisposed)
          return;
 
-      _singleInstance.Release();
-      Dispose();
+      _monitor.ProcessPairTerminated -= OnProcessPairTerminated;
+      _monitor.Dispose();
+      _singleInstance.Dispose();
+      _isDisposed = true;
    }
 
    private void OnProcessPairTerminated(object? sender, ProcessPair pair)
@@ -195,16 +207,17 @@ public class ProcessMonitorService : IDisposable
    protected virtual void Dispose(bool disposing)
    {
       if (!_isDisposed)
-      {
-         if (disposing)
-         {
-            _monitor.ProcessPairTerminated -= OnProcessPairTerminated;
-            _monitor.Dispose();
-            _singleInstance.Dispose();
-         }
-
          _isDisposed = true;
-      }
+   }
+
+   private void KeepInstanceAlive()
+   {
+      _instance = this;
+
+      if (!_singleInstance.IsAlreadyRunning)
+         LoadAndStartMonitoring();
+
+      _logger.Info("ProcessMonitorService initialized");
    }
 
    public void Dispose()

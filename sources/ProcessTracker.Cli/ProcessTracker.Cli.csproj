@@ -27,4 +27,8 @@
 	  </None>
 	</ItemGroup>
 
+	<ItemGroup>
+	  <ProjectReference Include="..\ProcessTracker\ProcessTracker.csproj" />
+	</ItemGroup>
+
 </Project>
