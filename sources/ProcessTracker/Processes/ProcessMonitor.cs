@@ -169,11 +169,10 @@ public class ProcessMonitor : IDisposable
       foreach (var pair in processesToCheck)
       {
          var mainProcessRunning = IsProcessRunning(pair.MainProcessId);
+         var childProcessRunning = IsProcessRunning(pair.ChildProcessId);
 
          if (!mainProcessRunning)
          {
-            var childProcessRunning = IsProcessRunning(pair.ChildProcessId);
-
             if (childProcessRunning)
             {
                try
@@ -188,6 +187,12 @@ public class ProcessMonitor : IDisposable
 
             processesToRemove.Add(pair);
          }
+         else if (!childProcessRunning)
+         {
+            _logger.Info($"The child process {pair.ChildProcessId} has been terminated");
+            _logger.Info($"Remove the pair from monitoring {pair.MainProcessName}:{pair.ChildProcessId}");
+            processesToRemove.Add(pair);
+         }
       }
 
       if (processesToRemove.Count > 0)
@@ -197,9 +202,7 @@ public class ProcessMonitor : IDisposable
             var currentProcesses = _monitoredProcesses.Except(processesToRemove).ToArray();
             _monitoredProcesses.Clear();
             foreach (var p in currentProcesses)
-            {
                _monitoredProcesses.Add(p);
-            }
          }
       }
    }

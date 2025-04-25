@@ -42,6 +42,12 @@ public static class Program
              .WithExample(["monitor", "--interval", "5", "--auto-exit", "60"])
              .WithAlias("m");
 
+#if DEBUG
+         config.AddCommand<TestCommand>("test")
+            .WithDescription("Create and monitor a test process pair for demonstration")
+            .WithExample(["test"]);
+#endif
+
          config.ValidateExamples();
       });
 

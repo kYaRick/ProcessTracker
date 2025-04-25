@@ -54,12 +54,12 @@ public class BasicCommandSettings : CommandSettings
 public class MonitorSettings : BasicCommandSettings
 {
    [CommandOption("-i|--interval")]
-   [Description("Refresh interval in seconds")]
+   [Description("Refresh interval in seconds. Affects how often UI updates and defines auto-exit time units")]
    [DefaultValue(3)]
    public int RefreshInterval { get; set; }
 
    [CommandOption("-a|--auto-exit")]
-   [Description("Automatically exit monitoring after specified seconds with no processes (0 to disable)")]
+   [Description("Auto-exit after N seconds with no processes (calculated as RefreshInterval × this value, 0 to disable)")]
    [DefaultValue(6)]
    public int AutoExitTimeout { get; set; }
 

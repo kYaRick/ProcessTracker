@@ -33,8 +33,6 @@ public static class ServiceManager
          }
 
          IProcessTrackerLogger logger = quietMode ? new QuiteLogger() : new CliLogger();
-
-
          var monitor = new ProcessMonitor(TimeSpan.FromSeconds(4), logger);
          var repository = new ProcessRepository();
          var singleInstance = new SingleInstanceManager(logger);
@@ -46,6 +44,9 @@ public static class ServiceManager
       }
    }
 
+   /// <summary>
+   /// Shuts down the service instance
+   /// </summary>
    public static void ShutdownService()
    {
       lock (_lock)
