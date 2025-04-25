@@ -60,15 +60,15 @@ public static class ServiceManager
          if (_serviceInstance == null)
             return;
 
-         try
-         {
-            _serviceInstance.Shutdown();
-         }
-         finally
-         {
-            _serviceInstance = null;
-            _initialized = false;
-         }
+         //try
+         //{
+         //   _serviceInstance.Shutdown();
+         //}
+         //finally
+         //{
+         //   _serviceInstance = null;
+         //   _initialized = false;
+         //}
       }
    }
 

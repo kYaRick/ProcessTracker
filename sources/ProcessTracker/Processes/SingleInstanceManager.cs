@@ -46,7 +46,7 @@ public class SingleInstanceManager : IDisposable
          }
          catch (Exception ex)
          {
-            _logger.Error($"Error releasing mutex: {ex.Message}");
+            _logger.Error($"Releasing mutex: {ex.Message}");
          }
       }
    }

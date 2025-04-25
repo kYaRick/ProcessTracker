@@ -1,5 +1,6 @@
 using ProcessTracker.Cli.Logging;
 using ProcessTracker.Cli.Services;
+using ProcessTracker.Models;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.Diagnostics;
@@ -13,7 +14,7 @@ public class AddCommand : Command<ProcessPairSettings>
 {
    public override int Execute(CommandContext context, ProcessPairSettings settings)
    {
-      var logger = new CliLogger();
+      IProcessTrackerLogger logger = settings.QuietMode ? new QuiteLogger() : new CliLogger();
 
       try
       {

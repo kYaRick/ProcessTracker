@@ -1,4 +1,5 @@
 using ProcessTracker.Cli.Logging;
+using ProcessTracker.Models;
 using ProcessTracker.Processes;
 using ProcessTracker.Services;
 using Spectre.Console;
@@ -9,11 +10,11 @@ namespace ProcessTracker.Cli.Commands;
 /// <summary>
 /// Command to run the process tracker as a persistent service
 /// </summary>
-public class ServiceCommand : Command<BasicCommandSettings>
+public class ServiceCommand : Command<ServiceSettings>
 {
-   public override int Execute(CommandContext context, BasicCommandSettings settings)
+   public override int Execute(CommandContext context, ServiceSettings settings)
    {
-      var logger = new CliLogger();
+      IProcessTrackerLogger logger = settings.QuietMode ? new QuiteLogger() : new CliLogger();
 
       try
       {
@@ -28,7 +29,14 @@ public class ServiceCommand : Command<BasicCommandSettings>
          }
 
          // Create service components with detailed logging
-         var monitor = new ProcessMonitor(TimeSpan.FromSeconds(2), logger);
+         TimeSpan? autoShutdownTimeout = settings.AutoShutdownTimeout > 0
+            ? TimeSpan.FromSeconds(settings.AutoShutdownTimeout)
+            : null;
+
+         var monitor = new ProcessMonitor(
+            TimeSpan.FromSeconds(settings.CheckInterval),
+            logger);
+
          var repository = new ProcessRepository();
          var singleInstance = new SingleInstanceManager(logger);
 
@@ -44,6 +52,13 @@ public class ServiceCommand : Command<BasicCommandSettings>
          if (!settings.QuietMode)
          {
             AnsiConsole.MarkupLine("[green]Process Tracker Service is running[/]");
+
+            if (settings.AutoShutdownTimeout > 0)
+               AnsiConsole.MarkupLine($"[blue]Auto-shutdown:[/] Service will auto-shutdown after {settings.AutoShutdownTimeout} seconds with no processes");
+
+            if (settings.AutoExit)
+               AnsiConsole.MarkupLine("[blue]Auto-exit:[/] Service will terminate when auto-shutdown occurs");
+
             AnsiConsole.MarkupLine("Press Ctrl+C to stop the service");
 
             var pairs = service.GetAllProcessPairs();
@@ -75,17 +90,17 @@ public class ServiceCommand : Command<BasicCommandSettings>
             }
          }
 
-         var exitEvent = new ManualResetEvent(false);
+         _exitEvent = new ManualResetEvent(false);
 
          Console.CancelKeyPress += (sender, e) =>
          {
             e.Cancel = true;
             if (!settings.QuietMode)
                AnsiConsole.MarkupLine("[blue]Shutting down Process Tracker Service...[/]");
-            exitEvent.Set();
+            _exitEvent.Set();
          };
 
-         exitEvent.WaitOne();
+         _exitEvent.WaitOne();
 
          if (!settings.QuietMode)
             AnsiConsole.MarkupLine("[green]Process Tracker Service stopped[/]");
@@ -99,5 +114,6 @@ public class ServiceCommand : Command<BasicCommandSettings>
          return 1;
       }
    }
-}
 
+   private ManualResetEvent? _exitEvent;
+}

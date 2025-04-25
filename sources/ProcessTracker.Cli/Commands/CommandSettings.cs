@@ -63,6 +63,11 @@ public class MonitorSettings : BasicCommandSettings
    [DefaultValue(0)]
    public int AutoExitTimeout { get; set; }
 
+   [CommandOption("-v|--verbose")]
+   [Description("Show verbose output including detailed process information")]
+   [DefaultValue(false)]
+   public bool Verbose { get; set; }
+
    public override ValidationResult Validate()
    {
       if (RefreshInterval <= 0)
@@ -74,6 +79,44 @@ public class MonitorSettings : BasicCommandSettings
       return ValidationResult.Success();
    }
 }
+
+/// <summary>
+/// Settings for service command
+/// </summary>
+public class ServiceSettings : BasicCommandSettings
+{
+   [CommandOption("-c|--check-interval")]
+   [Description("How often to check processes (in seconds)")]
+   [DefaultValue(5)]
+   public int CheckInterval { get; set; }
+
+   [CommandOption("-a|--auto-shutdown")]
+   [Description("Automatically shutdown monitoring after specified seconds with no processes (0 to disable)")]
+   [DefaultValue(0)]
+   public int AutoShutdownTimeout { get; set; }
+
+   [CommandOption("-e|--auto-exit")]
+   [Description("Automatically exit the service when auto-shutdown occurs")]
+   [DefaultValue(false)]
+   public bool AutoExit { get; set; }
+
+   [CommandOption("-v|--verbose")]
+   [Description("Show verbose output including detailed process information")]
+   [DefaultValue(false)]
+   public bool Verbose { get; set; }
+
+   public override ValidationResult Validate()
+   {
+      if (CheckInterval <= 0)
+         return ValidationResult.Error("Check interval must be greater than 0.");
+
+      if (AutoShutdownTimeout < 0)
+         return ValidationResult.Error("Auto-shutdown timeout must be greater than or equal to 0.");
+
+      return ValidationResult.Success();
+   }
+}
+
 
 /// <summary>
 /// Settings for stop command

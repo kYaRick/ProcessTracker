@@ -8,6 +8,8 @@
 /// or managed.</remarks>
 public class ProcessPair
 {
+   public DateTime Time { get; set; }
+
    public string MainProcessName { get; set; } = string.Empty;
    public int MainProcessId { get; set; } = 0;
 
