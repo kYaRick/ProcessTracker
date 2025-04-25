@@ -1,4 +1,4 @@
-using ProcessTracker.Cli.Logging;
+﻿using ProcessTracker.Cli.Logging;
 using ProcessTracker.Cli.Services;
 using ProcessTracker.Models;
 using ProcessTracker.Services;
@@ -13,34 +13,28 @@ namespace ProcessTracker.Cli.Commands;
 /// </summary>
 public class MonitorCommand : Command<MonitorSettings>
 {
-   private readonly Dictionary<string, Action<MonitorSettings>> _commands = new(StringComparer.OrdinalIgnoreCase);
+   private readonly Dictionary<string, Action> _commands = new(StringComparer.OrdinalIgnoreCase);
    private bool _keepRunning = true;
    private ProcessMonitorService? _service;
-   private bool _verbose = false;
+   private int _lastProcessCount = -1;
 
    public MonitorCommand()
    {
-      // Register available commands during monitoring
-      _commands["add"] = _ => AnsiConsole.MarkupLine("[yellow]To add a process pair, exit monitor mode and use:[/] proctrack add --main <id> --child <id>");
-      _commands["remove"] = _ => AnsiConsole.MarkupLine("[yellow]To remove a process pair, exit monitor mode and use:[/] proctrack remove --main <id> --child <id>");
-      _commands["list"] = _ => DisplayProcessList();
-      _commands["exit"] = _ => _keepRunning = false;
-      _commands["quit"] = _ => _keepRunning = false;
-      _commands["verbose"] = s => ToggleVerboseMode(s);
-      _commands["help"] = _ => DisplayHelp();
-      _commands["?"] = _ => DisplayHelp();
-      _commands["clear"] = _ => AnsiConsole.Clear();
+      _commands["list"] = DisplayProcessList;
+      _commands["exit"] = () => _keepRunning = false;
+      _commands["quit"] = () => _keepRunning = false;
+      _commands["help"] = DisplayHelp;
+      _commands["?"] = DisplayHelp;
+      _commands["clear"] = () => AnsiConsole.Clear();
    }
 
    public override int Execute(CommandContext context, MonitorSettings settings)
    {
       IProcessTrackerLogger logger = settings.QuietMode ? new QuiteLogger() : new CliLogger();
-      _verbose = settings.Verbose;
 
       try
       {
-         // Use ServiceManager to get a consistent service instance
-         var (service, wasCreated) = ServiceManager.GetOrCreateService(settings.QuietMode);
+         var (service, _) = ServiceManager.GetOrCreateService(settings.QuietMode);
          _service = service;
 
          if (service.IsAlreadyRunning)
@@ -51,116 +45,84 @@ public class MonitorCommand : Command<MonitorSettings>
          }
 
          if (!settings.QuietMode)
-            AnsiConsole.Clear();
-
-         if (!settings.QuietMode)
          {
-            AnsiConsole.Write(new FigletText("Process Monitor")
-                .Color(Color.Blue)
-                .Centered());
-            AnsiConsole.MarkupLine("[green]Interactive Process Monitor Started[/]");
+            AnsiConsole.Clear();
+            AnsiConsole.Write(new Rule("[blue]Process Monitor[/]").RuleStyle("blue").Centered());
+            AnsiConsole.MarkupLine("[green]Process Monitor Started[/]");
 
-            if (wasCreated)
-               AnsiConsole.MarkupLine("[blue]Started new monitoring service[/]");
-            else
-               AnsiConsole.MarkupLine("[blue]Connected to existing monitoring service[/]");
-
-            // Show auto-exit information if enabled
             if (settings.AutoExitTimeout > 0)
-               AnsiConsole.MarkupLine($"[blue]Auto-exit:[/] Monitor will automatically exit after {settings.AutoExitTimeout} seconds with no processes");
+               AnsiConsole.MarkupLine($"[blue]Auto-exit:[/] Monitor will exit after {settings.AutoExitTimeout} seconds with no processes");
 
-            AnsiConsole.MarkupLine("\n[blue]Commands available during monitoring:[/]");
-            AnsiConsole.MarkupLine("  Type [green]help[/] or [green]?[/] to show available commands");
-            AnsiConsole.MarkupLine("  Type [green]exit[/] or press [green]Ctrl+C[/] to exit monitor mode");
-            AnsiConsole.MarkupLine("  Press [green]Enter[/] to refresh the display");
+            AnsiConsole.MarkupLine("[blue]Commands:[/] help, list, clear, exit");
             AnsiConsole.WriteLine();
          }
 
          _keepRunning = true;
 
-         // Set up a cancellation token that will be triggered by Ctrl+C
-         Console.CancelKeyPress += (sender, e) =>
+         Console.CancelKeyPress += (_, e) =>
          {
             e.Cancel = true;
             _keepRunning = false;
-            if (!settings.QuietMode)
-               AnsiConsole.MarkupLine("[blue]Exiting monitor. Process tracking continues in the background.[/]");
          };
 
-         // Auto-exit tracking variables
-         int emptyRefreshCount = 0;
-         int maxEmptyRefreshes = settings.AutoExitTimeout > 0
+         var emptyRefreshCount = 0;
+         var maxEmptyRefreshes = settings.AutoExitTimeout > 0
             ? settings.AutoExitTimeout / settings.RefreshInterval
             : 0;
 
-         // Set up input handling in a separate task
-         var inputTask = Task.Run(() => HandleUserInput(settings));
+         var inputTask = Task.Run(HandleUserInput);
 
          while (_keepRunning)
          {
-            if (!settings.QuietMode)
-            {
-               // Only clear screen if not in quiet mode
-               AnsiConsole.Clear();
+            var processPairs = service.GetAllProcessPairs();
+            bool processListChanged = processPairs.Count != _lastProcessCount;
+            _lastProcessCount = processPairs.Count;
 
-               AnsiConsole.Write(new FigletText("Process Monitor")
-                  .Color(Color.Blue)
-                  .Centered());
+            if (processListChanged && !settings.QuietMode)
+            {
+               AnsiConsole.Clear();
+               AnsiConsole.Write(new Rule("[blue]Process Monitor[/]").RuleStyle("blue"));
                AnsiConsole.MarkupLine($"[grey]Last updated: {DateTime.Now.ToLongTimeString()}[/]");
             }
 
-            var processPairs = service.GetAllProcessPairs();
-
             if (processPairs.Count == 0)
             {
-               // Track time with no processes for auto-exit
                if (settings.AutoExitTimeout > 0)
                {
                   emptyRefreshCount++;
-                  int remainingTime = (maxEmptyRefreshes - emptyRefreshCount) * settings.RefreshInterval;
-
                   if (emptyRefreshCount >= maxEmptyRefreshes)
                   {
                      if (!settings.QuietMode)
-                        AnsiConsole.MarkupLine("[yellow]Auto-exit timeout reached. Exiting monitor.[/]");
+                        AnsiConsole.MarkupLine("[yellow]Auto-exit timeout reached.[/]");
                      _keepRunning = false;
                      break;
                   }
 
-                  if (!settings.QuietMode)
+                  if (!settings.QuietMode && (processListChanged || emptyRefreshCount % 2 == 0))
                   {
-                     AnsiConsole.MarkupLine("\n[blue]No process pairs are currently being tracked.[/]");
-                     AnsiConsole.MarkupLine($"[yellow]Auto-exit:[/] Monitor will exit in {remainingTime} seconds if no processes are added");
+                     var remainingTime = (maxEmptyRefreshes - emptyRefreshCount) * settings.RefreshInterval;
+                     AnsiConsole.MarkupLine("[blue]No processes tracked.[/] Auto-exit in [yellow]{0}[/] sec", remainingTime);
                   }
                }
-               else if (!settings.QuietMode)
+               else if (!settings.QuietMode && processListChanged)
                {
-                  AnsiConsole.MarkupLine("\n[blue]No process pairs are currently being tracked.[/]");
+                  AnsiConsole.MarkupLine("[blue]No processes are being tracked.[/]");
                }
             }
             else
             {
-               // Reset empty refresh counter when processes are found
                emptyRefreshCount = 0;
-
-               if (!settings.QuietMode)
-               {
+               if (!settings.QuietMode && processListChanged)
                   DisplayProcessTable(processPairs);
-               }
             }
 
-            if (!settings.QuietMode)
-            {
-               AnsiConsole.MarkupLine("\n[grey]Type a command or press Enter to refresh:[/] ");
-            }
+            if (!settings.QuietMode && processListChanged)
+               AnsiConsole.MarkupLine("[dim]Commands: help, list, exit[/]");
 
-            // Wait for refresh interval
-            Task.Delay(settings.RefreshInterval * 1000).GetAwaiter();
+            Task.Delay(settings.RefreshInterval * 1000).Wait();
          }
 
-         // Clean up input handling
          inputTask.Wait(TimeSpan.FromSeconds(1));
-
          return 0;
       }
       catch (Exception ex)
@@ -171,55 +133,27 @@ public class MonitorCommand : Command<MonitorSettings>
       }
    }
 
-   private void HandleUserInput(MonitorSettings settings)
+   private void HandleUserInput()
    {
       while (_keepRunning)
       {
-         // Read input without blocking the main thread
          if (Console.KeyAvailable)
          {
             var input = Console.ReadLine()?.Trim();
-            if (!string.IsNullOrEmpty(input))
-            {
-               ProcessCommand(input, settings);
-            }
+            if (!string.IsNullOrEmpty(input) && _commands.TryGetValue(input, out var action))
+               action();
          }
-
-         // Small delay to prevent CPU thrashing
          Thread.Sleep(100);
-      }
-   }
-
-   private void ProcessCommand(string command, MonitorSettings settings)
-   {
-      if (_commands.TryGetValue(command, out var action))
-      {
-         action(settings);
-      }
-      else if (!string.IsNullOrWhiteSpace(command))
-      {
-         AnsiConsole.MarkupLine($"[yellow]Unknown command:[/] {command}");
-         DisplayHelp();
       }
    }
 
    private void DisplayHelp()
    {
-      AnsiConsole.MarkupLine("\n[blue]Available commands:[/]");
-      AnsiConsole.MarkupLine("  [green]list[/] - Display current process pairs");
-      AnsiConsole.MarkupLine("  [green]verbose[/] - Toggle verbose output mode");
+      AnsiConsole.MarkupLine("[blue]Available commands:[/]");
+      AnsiConsole.MarkupLine("  [green]list[/] - Display process pairs");
       AnsiConsole.MarkupLine("  [green]clear[/] - Clear the console");
-      AnsiConsole.MarkupLine("  [green]exit[/] or [green]quit[/] - Exit monitor mode");
+      AnsiConsole.MarkupLine("  [green]exit[/] or [green]quit[/] - Exit monitor");
       AnsiConsole.MarkupLine("  [green]help[/] or [green]?[/] - Show this help");
-   }
-
-   private void ToggleVerboseMode(MonitorSettings settings)
-   {
-      _verbose = !_verbose;
-      settings.Verbose = _verbose;
-      AnsiConsole.MarkupLine(_verbose
-         ? "[green]Verbose mode enabled[/]"
-         : "[yellow]Verbose mode disabled[/]");
    }
 
    private void DisplayProcessList()
@@ -229,7 +163,7 @@ public class MonitorCommand : Command<MonitorSettings>
       var processPairs = _service.GetAllProcessPairs();
       if (processPairs.Count == 0)
       {
-         AnsiConsole.MarkupLine("[blue]No process pairs are currently being tracked.[/]");
+         AnsiConsole.MarkupLine("[blue]No process pairs are being tracked.[/]");
          return;
       }
 
@@ -238,71 +172,38 @@ public class MonitorCommand : Command<MonitorSettings>
 
    private void DisplayProcessTable(IReadOnlyList<ProcessPair> processPairs)
    {
-      var table = new Table();
+      var table = new Table().Border(TableBorder.Simple).BorderColor(Color.Grey);
 
-      table.AddColumn(new TableColumn("Main Process").Centered());
-      table.AddColumn(new TableColumn("Main ID").Centered());
-      table.AddColumn(new TableColumn("Status").Centered());
-      table.AddColumn(new TableColumn("Child Process").Centered());
-      table.AddColumn(new TableColumn("Child ID").Centered());
-      table.AddColumn(new TableColumn("Action").Centered());
-
-      if (_verbose)
-      {
-         table.AddColumn(new TableColumn("Added").Centered());
-      }
+      table.AddColumn(new TableColumn("Main").Width(18));
+      table.AddColumn(new TableColumn("ID").Width(8).Centered());
+      table.AddColumn(new TableColumn("Status").Width(8).Centered());
+      table.AddColumn(new TableColumn("Child").Width(18));
+      table.AddColumn(new TableColumn("ID").Width(8).Centered());
 
       foreach (var pair in processPairs)
       {
          var mainRunning = IsProcessRunning(pair.MainProcessId);
          var childRunning = IsProcessRunning(pair.ChildProcessId);
 
-         var mainStatus = mainRunning ? "[green]Running[/]" : "[red]Stopped[/]";
-         var childStatus = childRunning ? "[green]Running[/]" : "[red]Stopped[/]";
-         var action = "";
+         var mainStatus = mainRunning ? "[green]●[/]" : "[red]●[/]";
 
-         if (!mainRunning && childRunning)
-            action = "[yellow]Will terminate[/]";
+         var mainName = TruncateName(pair.MainProcessName, 15);
+         var childName = TruncateName(pair.ChildProcessName, 15);
 
-         if (_verbose)
-         {
-            table.AddRow(
-                pair.MainProcessName,
-                pair.MainProcessId.ToString(),
-                mainStatus,
-                pair.ChildProcessName,
-                pair.ChildProcessId.ToString(),
-                action,
-                pair.Time.ToString("yyyy-MM-dd HH:mm:ss")
-            );
-         }
-         else
-         {
-            table.AddRow(
-                pair.MainProcessName,
-                pair.MainProcessId.ToString(),
-                mainStatus,
-                pair.ChildProcessName,
-                pair.ChildProcessId.ToString(),
-                action
-            );
-         }
+         table.AddRow(
+             mainName,
+             pair.MainProcessId.ToString(),
+             mainStatus,
+             childName,
+             pair.ChildProcessId.ToString()
+         );
       }
 
       AnsiConsole.Write(table);
-
-      // Only show termination notifications in verbose mode
-      if (_verbose)
-      {
-         foreach (var pair in processPairs)
-         {
-            if (!IsProcessRunning(pair.MainProcessId) && IsProcessRunning(pair.ChildProcessId))
-            {
-               AnsiConsole.MarkupLine($"[yellow]Main process {pair.MainProcessName} ({pair.MainProcessId}) has terminated. Child process {pair.ChildProcessName} ({pair.ChildProcessId}) will be terminated.[/]");
-            }
-         }
-      }
    }
+
+   private string TruncateName(string name, int maxLength) =>
+      name.Length <= maxLength ? name : name.Substring(0, maxLength - 3) + "...";
 
    private bool IsProcessRunning(int processId)
    {

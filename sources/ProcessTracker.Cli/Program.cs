@@ -34,17 +34,13 @@ public static class Program
          config.AddCommand<ListCommand>("list")
              .WithDescription("List all tracked process pairs");
 
+         config.AddCommand<ClearCommand>("clear")
+             .WithDescription("Clear all tracked process pairs");
+
          config.AddCommand<MonitorCommand>("monitor")
              .WithDescription("Start monitoring mode with live updates")
-             .WithExample(["monitor", "--interval", "5", "--auto-exit", "60", "--verbose"])
+             .WithExample(["monitor", "--interval", "5", "--auto-exit", "60"])
              .WithAlias("m");
-
-         config.AddCommand<StopCommand>("stop")
-             .WithDescription("Stop the process tracker service");
-
-         config.AddCommand<ServiceCommand>("service")
-             .WithDescription("Run as a persistent background service")
-             .WithExample(["service", "--check-interval", "10", "--auto-shutdown", "300", "--auto-exit"]);
 
          config.ValidateExamples();
       });

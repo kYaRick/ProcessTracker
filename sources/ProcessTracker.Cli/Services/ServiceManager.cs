@@ -1,17 +1,17 @@
-using ProcessTracker.Cli.Logging;
+﻿using ProcessTracker.Cli.Logging;
+using ProcessTracker.Models;
 using ProcessTracker.Processes;
 using ProcessTracker.Services;
 
 namespace ProcessTracker.Cli.Services;
 
 /// <summary>
-/// Manages a single instance of the ProcessMonitorService to ensure continuity across commands
+/// Manages a single instance of the ProcessMonitorService
 /// </summary>
 public static class ServiceManager
 {
    private static ProcessMonitorService? _serviceInstance;
    private static readonly object _lock = new();
-   private static bool _initialized = false;
 
    /// <summary>
    /// Gets or creates the singleton ProcessMonitorService instance
@@ -27,32 +27,25 @@ public static class ServiceManager
 
          if (_serviceInstance is { })
          {
-            try
-            {
-               _serviceInstance.Dispose();
-            }
-            catch
-            {
-            }
+            try { _serviceInstance.Dispose(); }
+            catch { }
             _serviceInstance = null;
          }
 
-         var logger = new CliLogger();
-         var monitor = new ProcessMonitor(TimeSpan.FromSeconds(2), logger);
+         IProcessTrackerLogger logger = quietMode ? new QuiteLogger() : new CliLogger();
+
+
+         var monitor = new ProcessMonitor(TimeSpan.FromSeconds(4), logger);
          var repository = new ProcessRepository();
          var singleInstance = new SingleInstanceManager(logger);
 
          _serviceInstance = new ProcessMonitorService(
              monitor, repository, singleInstance, logger);
-         _initialized = true;
 
          return (_serviceInstance, true);
       }
    }
 
-   /// <summary>
-   /// Explicitly shuts down the service when the application is exiting
-   /// </summary>
    public static void ShutdownService()
    {
       lock (_lock)
@@ -60,27 +53,10 @@ public static class ServiceManager
          if (_serviceInstance == null)
             return;
 
-         //try
-         //{
-         //   _serviceInstance.Shutdown();
-         //}
-         //finally
-         //{
-         //   _serviceInstance = null;
-         //   _initialized = false;
-         //}
-      }
-   }
+         try { _serviceInstance.Dispose(); }
+         catch { }
 
-   /// <summary>
-   /// Returns whether the service is currently initialized
-   /// </summary>
-   public static bool IsServiceInitialized()
-   {
-      lock (_lock)
-      {
-         return _initialized && _serviceInstance != null;
+         _serviceInstance = null;
       }
    }
 }
-
