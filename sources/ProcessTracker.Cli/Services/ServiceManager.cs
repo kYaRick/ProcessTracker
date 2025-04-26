@@ -17,8 +17,11 @@ public static class ServiceManager
    /// Gets or creates the singleton ProcessMonitorService instance
    /// </summary>
    /// <param name="quietMode">Whether to suppress output</param>
+   /// <param name="customLogger">Optional custom logger to use</param>
    /// <returns>The service instance and whether it was newly created</returns>
-   public static (ProcessMonitorService Service, bool WasCreated) GetOrCreateService(bool quietMode = false)
+   public static (ProcessMonitorService Service, bool WasCreated) GetOrCreateService(
+      bool quietMode = false,
+      IProcessTrackerLogger? customLogger = null)
    {
       lock (_lock)
       {
@@ -32,7 +35,9 @@ public static class ServiceManager
             _serviceInstance = null;
          }
 
-         IProcessTrackerLogger logger = quietMode ? new QuiteLogger() : new CliLogger();
+         IProcessTrackerLogger logger = customLogger ??
+            (quietMode ? new QuiteLogger() : new CliLogger());
+
          var monitor = new ProcessMonitor(TimeSpan.FromSeconds(4), logger);
          var repository = new ProcessRepository();
          var singleInstance = new SingleInstanceManager(logger);

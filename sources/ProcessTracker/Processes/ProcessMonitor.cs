@@ -228,22 +228,27 @@ public class ProcessMonitor : IDisposable
    {
       try
       {
-         if (TryGetProcess(processId, out var process) && process != null)
+         if (!TryGetProcess(processId, out var process) || process == null)
          {
-            if (process.CloseMainWindow())
-            {
-               var exited = await Task.Run(() => process.WaitForExit(3000));
+            _logger.Warning($"Process {processId} not found.");
+            return;
+         }
 
-               if (!exited)
-               {
-                  process.Kill();
-               }
-            }
-            else
+         var closeRequested = process.CloseMainWindow();
+
+         if (closeRequested)
+         {
+            var exited = process.WaitForExit(3000);
+            if (exited)
             {
-               process.Kill();
+               _logger.Info($"Process {processId} exited gracefully.");
+               return;
             }
          }
+
+         process.Kill();
+         await Task.Delay(500);
+         _logger.Info($"Process {processId} killed.");
       }
       catch (Exception ex)
       {
@@ -261,9 +266,7 @@ public class ProcessMonitor : IDisposable
          try
          {
             if (_monitoringTask is { } && !_monitoringTask.IsCompleted)
-            {
                Task.WaitAny([_monitoringTask], 1000);
-            }
          }
          finally
          {

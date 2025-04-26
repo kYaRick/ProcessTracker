@@ -4,6 +4,7 @@ using ProcessTracker.Models;
 using ProcessTracker.Services;
 using Spectre.Console;
 using Spectre.Console.Cli;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 
 namespace ProcessTracker.Cli.Commands;
@@ -13,28 +14,20 @@ namespace ProcessTracker.Cli.Commands;
 /// </summary>
 public class MonitorCommand : Command<MonitorSettings>
 {
-   private readonly Dictionary<string, Action> _commands = new(StringComparer.OrdinalIgnoreCase);
    private bool _keepRunning = true;
    private ProcessMonitorService? _service;
-   private int _lastProcessCount = -1;
-
-   public MonitorCommand()
-   {
-      _commands["list"] = DisplayProcessList;
-      _commands["exit"] = () => _keepRunning = false;
-      _commands["quit"] = () => _keepRunning = false;
-      _commands["help"] = DisplayHelp;
-      _commands["?"] = DisplayHelp;
-      _commands["clear"] = () => AnsiConsole.Clear();
-   }
+   private readonly ConcurrentQueue<string> _logMessages = new();
+   private readonly int _maxLogMessages = 10;
 
    public override int Execute(CommandContext context, MonitorSettings settings)
    {
-      IProcessTrackerLogger logger = settings.QuietMode ? new QuiteLogger() : new CliLogger();
-
       try
       {
-         var (service, _) = ServiceManager.GetOrCreateService(settings.QuietMode);
+         IProcessTrackerLogger logger = settings.QuietMode
+            ? new QuiteLogger()
+            : new MonitorLogger(_logMessages, _maxLogMessages);
+
+         var (service, _) = ServiceManager.GetOrCreateService(settings.QuietMode, logger);
          _service = service;
 
          if (service.IsAlreadyRunning)
@@ -44,25 +37,13 @@ public class MonitorCommand : Command<MonitorSettings>
             return 1;
          }
 
-         if (!settings.QuietMode)
-         {
-            AnsiConsole.Clear();
-            AnsiConsole.Write(new Rule("[blue]Process Monitor[/]").RuleStyle("blue").Centered());
-            AnsiConsole.MarkupLine("[green]Process Monitor Started[/]");
-
-            if (settings.AutoExitTimeout > 0)
-               AnsiConsole.MarkupLine($"[blue]Auto-exit:[/] Monitor will exit after {settings.AutoExitTimeout} seconds with no processes");
-
-            AnsiConsole.MarkupLine("[blue]Commands:[/] help, list, clear, exit");
-            AnsiConsole.WriteLine();
-         }
-
          _keepRunning = true;
-
          Console.CancelKeyPress += (_, e) =>
          {
             e.Cancel = true;
             _keepRunning = false;
+            if (!settings.QuietMode)
+               AnsiConsole.MarkupLine("[blue]Exiting monitor. Process tracking continues in the background.[/]");
          };
 
          var emptyRefreshCount = 0;
@@ -70,59 +51,81 @@ public class MonitorCommand : Command<MonitorSettings>
             ? settings.AutoExitTimeout / settings.RefreshInterval
             : 0;
 
-         var inputTask = Task.Run(HandleUserInput);
+         if (!settings.QuietMode)
+         {
+            AnsiConsole.Clear();
+            AnsiConsole.Write(new Rule("[blue]Process Tracker Monitor[/]").RuleStyle("blue"));
+            AnsiConsole.WriteLine();
+         }
 
          while (_keepRunning)
          {
-            var processPairs = service.GetAllProcessPairs();
-            bool processListChanged = processPairs.Count != _lastProcessCount;
-            _lastProcessCount = processPairs.Count;
-
-            if (processListChanged && !settings.QuietMode)
+            if (settings.QuietMode)
             {
-               AnsiConsole.Clear();
-               AnsiConsole.Write(new Rule("[blue]Process Monitor[/]").RuleStyle("blue"));
-               AnsiConsole.MarkupLine($"[grey]Last updated: {DateTime.Now.ToLongTimeString()}[/]");
+               Task.Delay(settings.RefreshInterval * 1000)
+                  .GetAwaiter()
+                  .GetResult();
+
+               continue;
             }
+
+            var processPairs = service.GetAllProcessPairs();
+
+            var layout = new Layout("Root")
+               .SplitRows(
+                  new Layout("Top"),
+                  new Layout("Bottom")
+               );
 
             if (processPairs.Count == 0)
             {
+               var panel = new Panel(
+                  new Markup("[yellow]No processes are being tracked[/]")
+               )
+               .Border(BoxBorder.Rounded)
+               .Header("[blue]Monitored Processes[/]")
+               .Expand();
+
+               layout["Top"].Update(panel);
+
                if (settings.AutoExitTimeout > 0)
                {
                   emptyRefreshCount++;
+                  var remainingTime = (maxEmptyRefreshes - emptyRefreshCount) * settings.RefreshInterval;
+
                   if (emptyRefreshCount >= maxEmptyRefreshes)
                   {
-                     if (!settings.QuietMode)
-                        AnsiConsole.MarkupLine("[yellow]Auto-exit timeout reached.[/]");
+                     AnsiConsole.Clear();
+                     AnsiConsole.MarkupLine("[yellow]Auto-exit timeout reached. Exiting monitor.[/]");
                      _keepRunning = false;
                      break;
                   }
 
-                  if (!settings.QuietMode && (processListChanged || emptyRefreshCount % 2 == 0))
-                  {
-                     var remainingTime = (maxEmptyRefreshes - emptyRefreshCount) * settings.RefreshInterval;
-                     AnsiConsole.MarkupLine("[blue]No processes tracked.[/] Auto-exit in [yellow]{0}[/] sec", remainingTime);
-                  }
-               }
-               else if (!settings.QuietMode && processListChanged)
-               {
-                  AnsiConsole.MarkupLine("[blue]No processes are being tracked.[/]");
+                  _logMessages.Enqueue($"[yellow]Auto-exit in {remainingTime} seconds[/]");
                }
             }
             else
             {
                emptyRefreshCount = 0;
-               if (!settings.QuietMode && processListChanged)
-                  DisplayProcessTable(processPairs);
+
+               var table = CreateProcessTable(processPairs);
+               layout["Top"].Update(table);
             }
 
-            if (!settings.QuietMode && processListChanged)
-               AnsiConsole.MarkupLine("[dim]Commands: help, list, exit[/]");
+            var logPanel = CreateLogPanel();
+            layout["Bottom"].Update(logPanel);
+
+            AnsiConsole.Clear();
+            AnsiConsole.Write(new Rule("[blue]Process Tracker Monitor[/]").RuleStyle("blue"));
+            AnsiConsole.Write(
+               new Markup($"[grey]Last updated: {DateTime.Now.ToLongTimeString()} • Press Ctrl+C to exit[/]")
+               .Centered());
+            AnsiConsole.WriteLine();
+            AnsiConsole.Write(layout);
 
             Task.Delay(settings.RefreshInterval * 1000).Wait();
          }
 
-         inputTask.Wait(TimeSpan.FromSeconds(1));
          return 0;
       }
       catch (Exception ex)
@@ -133,73 +136,55 @@ public class MonitorCommand : Command<MonitorSettings>
       }
    }
 
-   private void HandleUserInput()
+   private Table CreateProcessTable(IReadOnlyList<ProcessPair> processPairs)
    {
-      while (_keepRunning)
-      {
-         if (Console.KeyAvailable)
-         {
-            var input = Console.ReadLine()?.Trim();
-            if (!string.IsNullOrEmpty(input) && _commands.TryGetValue(input, out var action))
-               action();
-         }
-         Thread.Sleep(100);
-      }
-   }
+      var table = new Table()
+         .Border(TableBorder.Rounded)
+         .Title("[blue]Monitored Processes[/]")
+         .Expand();
 
-   private void DisplayHelp()
-   {
-      AnsiConsole.MarkupLine("[blue]Available commands:[/]");
-      AnsiConsole.MarkupLine("  [green]list[/] - Display process pairs");
-      AnsiConsole.MarkupLine("  [green]clear[/] - Clear the console");
-      AnsiConsole.MarkupLine("  [green]exit[/] or [green]quit[/] - Exit monitor");
-      AnsiConsole.MarkupLine("  [green]help[/] or [green]?[/] - Show this help");
-   }
-
-   private void DisplayProcessList()
-   {
-      if (_service == null) return;
-
-      var processPairs = _service.GetAllProcessPairs();
-      if (processPairs.Count == 0)
-      {
-         AnsiConsole.MarkupLine("[blue]No process pairs are being tracked.[/]");
-         return;
-      }
-
-      DisplayProcessTable(processPairs);
-   }
-
-   private void DisplayProcessTable(IReadOnlyList<ProcessPair> processPairs)
-   {
-      var table = new Table().Border(TableBorder.Simple).BorderColor(Color.Grey);
-
-      table.AddColumn(new TableColumn("Main").Width(18));
-      table.AddColumn(new TableColumn("ID").Width(8).Centered());
+      table.AddColumn(new TableColumn("Main Process").Width(18));
+      table.AddColumn(new TableColumn("Main ID").Width(8).Centered());
       table.AddColumn(new TableColumn("Status").Width(8).Centered());
-      table.AddColumn(new TableColumn("Child").Width(18));
-      table.AddColumn(new TableColumn("ID").Width(8).Centered());
+      table.AddColumn(new TableColumn("Child Process").Width(18));
+      table.AddColumn(new TableColumn("Child ID").Width(8).Centered());
+      table.AddColumn(new TableColumn("Added").Width(16).Centered());
 
       foreach (var pair in processPairs)
       {
          var mainRunning = IsProcessRunning(pair.MainProcessId);
          var childRunning = IsProcessRunning(pair.ChildProcessId);
 
-         var mainStatus = mainRunning ? "[green]●[/]" : "[red]●[/]";
+         var status = string.Empty;
+
+         if (mainRunning && childRunning)
+            status = "[green]●[/]";
+         else if (mainRunning)
+            status = "[blue]●[/]";
+         else if (childRunning)
+            status = "[yellow]●[/]";
+         else
+            status = "[red]●[/]";
 
          var mainName = TruncateName(pair.MainProcessName, 15);
          var childName = TruncateName(pair.ChildProcessName, 15);
+         var time = pair.Time.ToString("yyyy-MM-dd HH:mm");
 
-         table.AddRow(
-             mainName,
-             pair.MainProcessId.ToString(),
-             mainStatus,
-             childName,
-             pair.ChildProcessId.ToString()
-         );
+         table.AddRow(mainName, pair.MainProcessId.ToString(), status,
+                     childName, pair.ChildProcessId.ToString(), time);
       }
 
-      AnsiConsole.Write(table);
+      return table;
+   }
+
+   private Panel CreateLogPanel()
+   {
+      var logContent = string.Join("\n", _logMessages.Reverse().Take(_maxLogMessages));
+
+      return new Panel(new Markup(logContent))
+         .Header("[blue]Event Log[/]")
+         .Border(BoxBorder.Rounded)
+         .Expand();
    }
 
    private string TruncateName(string name, int maxLength) =>
