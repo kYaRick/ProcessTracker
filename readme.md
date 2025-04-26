@@ -3,12 +3,12 @@
 [![Version](https://img.shields.io/badge/version-0.1--alpha-yellow.svg?style=flat-square)](#)
 [![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?style=flat-square)](https://dotnet.microsoft.com/download/dotnet/9.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](./license)
-[![Made in Ukraine](https://img.shields.io/badge/Made_in-Ukraine-blue.svg?style=flat-square&labelColor=ffd500&color=0057b7)](https://github.com/topics/made-in-ukraine)
+[![Made in Ukraine](https://img.shields.io/badge/Made_in-Ukraine-blue.svg?style=flat-square&labelColor=ffd500&color=0057b7)](https://github.com/nikit0ns/Ukrainian_IT_Communities)
 
 <div align="center">
-  <img src="./docs/assets/proctrack-header.png" width="100%" style="max-width: 900px;" alt="ProcessTracker Header">
+  <img src="./docs/assets/proctrack-header.png" width="100%" style="max-width: 820px;" alt="ProcessTracker Header">
   <br>
-  <img src="./docs/assets/process-tracker.gif" width="100%" style="max-width: 900px;" alt="ProcessTracker Demo">
+  <img src="./docs/assets/process-tracker.gif" width="100%" style="max-width: 800px;" alt="ProcessTracker Demo">
 </div>
 
 ## 🚀 Overview

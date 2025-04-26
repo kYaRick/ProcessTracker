@@ -9,6 +9,7 @@
 		<ApplicationIcon>Assets\process-tracker-cli.ico</ApplicationIcon>
 		<SatelliteResourceLanguages>en</SatelliteResourceLanguages>
 		<PackageIcon>process-tracker-cli.png</PackageIcon>
+		<Version>0.1-a</Version>
 	</PropertyGroup>
 
 	<ItemGroup>
