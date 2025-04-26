@@ -17,9 +17,14 @@ public class MonitorLogger : IProcessTrackerLogger
       _maxMessages = maxMessages;
    }
 
-   public void Info(string message) => AddMessage($"[blue]INFO:[/] {EscapeMarkup(message)}");
-   public void Warning(string message) => AddMessage($"[yellow]WARNING:[/] {EscapeMarkup(message)}");
-   public void Error(string message) => AddMessage($"[red]ERROR:[/] {EscapeMarkup(message)}");
+   public void Info(string message) =>
+      AddMessage($"[blue]INFO:[/] {EscapeMarkup(message)}");
+
+   public void Warning(string message) =>
+      AddMessage($"[yellow]WARNING:[/] {EscapeMarkup(message)}");
+
+   public void Error(string message) =>
+      AddMessage($"[red]ERROR:[/] {EscapeMarkup(message)}");
 
    private void AddMessage(string message)
    {
