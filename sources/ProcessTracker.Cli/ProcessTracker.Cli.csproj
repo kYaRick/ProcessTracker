@@ -6,22 +6,28 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<BaseOutputPath>$(SolutionDir)bin\projects\$(AssemblyName)</BaseOutputPath>
-		<ApplicationIcon>Assets\process-tracker-cli.ico</ApplicationIcon>
+		<ApplicationIcon>$(ProjectDir)Assets\process-tracker-cli.ico</ApplicationIcon>
 		<SatelliteResourceLanguages>en</SatelliteResourceLanguages>
-		<PackageIcon>process-tracker-cli.png</PackageIcon>
-		<Version>0.1-a</Version>
+		<Version>$(TrackerVersion)</Version>
+		<PackAsTool>True</PackAsTool>
+		<ToolCommandName>proctrack</ToolCommandName>
+		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<Content Include="Assets\process-tracker-cli.ico" />
+		<Content Include="$(ProjectDir)Assets\process-tracker-cli.ico" />
 	</ItemGroup>
-
+	
 	<ItemGroup>
 		<PackageReference Include="Spectre.Console" Version="0.50.1-preview.0.5" />
 		<PackageReference Include="Spectre.Console.Cli" Version="0.50.1-preview.0.5" />
 	</ItemGroup>
 
 	<ItemGroup>
+	  <None Update="Assets\process-tracker-cli.ico">
+	    <Pack>True</Pack>
+	    <PackagePath>\</PackagePath>
+	  </None>
 	  <None Update="Assets\process-tracker-cli.png">
 	    <Pack>True</Pack>
 	    <PackagePath>\</PackagePath>

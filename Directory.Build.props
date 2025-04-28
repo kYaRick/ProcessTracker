@@ -1,0 +1,8 @@
+<Project>
+	<PropertyGroup>
+		<ConfigRunnerVersion>1.0-stable</ConfigRunnerVersion>
+		<TrackerVersion>0.2.0-alpha</TrackerVersion>
+		<Company>kYaCodeBase.Ua</Company>
+		<Copyright>Copyright © $([System.DateTime]::Now.Year)</Copyright>
+	</PropertyGroup>
+</Project>

@@ -23,35 +23,51 @@ public class MonitorCommand : Command<MonitorSettings>
    {
       try
       {
-         IProcessTrackerLogger logger = settings.QuietMode
-            ? new QuiteLogger()
-            : new MonitorLogger(_logMessages, _maxLogMessages);
+         IProcessTrackerLogger logger;
 
-         var (service, _) = ServiceManager.GetOrCreateService(settings.QuietMode, logger);
+         if (settings.BackgroundMode)
+         {
+            logger = new FileLogger();
+            logger.Info("Starting monitor in background mode");
+         }
+         else
+         {
+            logger = settings.QuietMode
+               ? new QuiteLogger()
+               : new MonitorLogger(_logMessages, _maxLogMessages);
+         }
+
+         var (service, _) = ServiceManager.GetOrCreateService(settings.QuietMode || settings.BackgroundMode, logger);
          _service = service;
 
          if (service.IsAlreadyRunning)
          {
-            if (!settings.QuietMode)
+            if (!settings.QuietMode && !settings.BackgroundMode)
                AnsiConsole.MarkupLine("[yellow]Warning:[/] Another instance of ProcessTracker is already running.");
+
+            logger.Warning("Another instance is already running");
             return 1;
          }
 
          _keepRunning = true;
-         Console.CancelKeyPress += (_, e) =>
+
+         if (!settings.BackgroundMode)
          {
-            e.Cancel = true;
-            _keepRunning = false;
-            if (!settings.QuietMode)
-               AnsiConsole.MarkupLine("[blue]Exiting monitor. Process tracking continues in the background.[/]");
-         };
+            Console.CancelKeyPress += (_, e) =>
+            {
+               e.Cancel = true;
+               _keepRunning = false;
+               if (!settings.QuietMode)
+                  AnsiConsole.MarkupLine("[blue]Exiting monitor. Process tracking continues in the background.[/]");
+            };
+         }
 
          var emptyRefreshCount = 0;
          var maxEmptyRefreshes = settings.AutoExitTimeout > 0
             ? settings.AutoExitTimeout / settings.RefreshInterval
             : 0;
 
-         if (!settings.QuietMode)
+         if (!settings.QuietMode && !settings.BackgroundMode)
          {
             AnsiConsole.Clear();
             AnsiConsole.Write(new Rule("[blue]Process Tracker Monitor[/]").RuleStyle("blue"));
@@ -60,16 +76,29 @@ public class MonitorCommand : Command<MonitorSettings>
 
          while (_keepRunning)
          {
-            if (settings.QuietMode)
-            {
-               Task.Delay(settings.RefreshInterval * 1000)
-                  .GetAwaiter()
-                  .GetResult();
+            var processPairs = service.GetAllProcessPairs();
 
+            if (settings.BackgroundMode || settings.QuietMode)
+            {
+               if (processPairs.Count == 0 && settings.AutoExitTimeout > 0)
+               {
+                  emptyRefreshCount++;
+
+                  if (emptyRefreshCount >= maxEmptyRefreshes)
+                  {
+                     logger.Info("Auto-exit timeout reached with no processes to monitor. Exiting.");
+                     _keepRunning = false;
+                     break;
+                  }
+               }
+               else
+               {
+                  emptyRefreshCount = 0;
+               }
+
+               Task.Delay(settings.RefreshInterval * 1000).Wait();
                continue;
             }
-
-            var processPairs = service.GetAllProcessPairs();
 
             var layout = new Layout("Root")
                .SplitRows(
@@ -130,7 +159,7 @@ public class MonitorCommand : Command<MonitorSettings>
       }
       catch (Exception ex)
       {
-         if (!settings.QuietMode)
+         if (!settings.QuietMode && !settings.BackgroundMode)
             AnsiConsole.MarkupLine($"[red]Error:[/] {ex.Message}");
          return 1;
       }

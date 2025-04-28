@@ -226,34 +226,55 @@ public class ProcessMonitor : IDisposable
 
    private async Task TerminateProcessAsync(int processId)
    {
+      Process? process = default;
+
       try
       {
-         if (!TryGetProcess(processId, out var process) || process == null)
+         if (!TryGetProcess(processId, out process) || process is null || process.HasExited)
          {
-            _logger.Warning($"Process {processId} not found.");
+            _logger.Warning($"Process {processId} not running.");
             return;
          }
 
-         var closeRequested = process.CloseMainWindow();
-
-         if (closeRequested)
-         {
-            var exited = process.WaitForExit(3000);
-            if (exited)
-            {
-               _logger.Info($"Process {processId} exited gracefully.");
-               return;
-            }
-         }
-
-         process.Kill();
-         await Task.Delay(500);
-         _logger.Info($"Process {processId} killed.");
+         await CloseGracefullyAsync(process)
+            .ConfigureAwait(false);
+      }
+      catch (InvalidOperationException ex) when (ex.Message.Contains("process has exited"))
+      {
+         _logger.Info($"Process {processId} already exited.");
       }
       catch (Exception ex)
       {
-         _logger.Error($"Failed to terminate process {processId}: {ex.Message}");
+         _logger.Error($"Failed to terminate {processId}.");
+         throw;
       }
+      finally
+      {
+         process?.Dispose();
+      }
+   }
+
+   private async Task CloseGracefullyAsync(Process proc)
+   {
+      if (proc.CloseMainWindow())
+      {
+         await WaitForExitAsync(proc, 3000);
+         if (proc.HasExited)
+         {
+            _logger.Info($"Process {proc.Id} closed gracefully.");
+            return;
+         }
+      }
+
+      proc.Kill();
+      await WaitForExitAsync(proc, 500);
+      _logger.Info($"Process {proc.Id} killed.");
+   }
+
+   private async Task WaitForExitAsync(Process process, int timeout)
+   {
+      var cts = new CancellationTokenSource(timeout);
+      await process.WaitForExitAsync(cts.Token);
    }
 
    public void Dispose()

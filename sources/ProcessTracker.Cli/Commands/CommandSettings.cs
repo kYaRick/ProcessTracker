@@ -63,6 +63,11 @@ public class MonitorSettings : BasicCommandSettings
    [DefaultValue(6)]
    public int AutoExitTimeout { get; set; }
 
+   [CommandOption("-b|--background")]
+   [Description("Run in background mode without visible console window")]
+   [DefaultValue(false)]
+   public bool BackgroundMode { get; set; }
+
    public override ValidationResult Validate()
    {
       if (RefreshInterval < 1)
