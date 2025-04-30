@@ -1,9 +1,10 @@
 # ⏲️ ProcessTracker
 
-[![Version](https://img.shields.io/badge/version-0.4--alpha-yellow.svg?style=flat-square)](#)
-[![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?style=flat-square)](https://dotnet.microsoft.com/download/dotnet/9.0)
-[![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](./license)
-[![Made in Ukraine](https://img.shields.io/badge/Made_in-Ukraine-blue.svg?style=flat-square&labelColor=ffd500&color=0057b7)](https://github.com/nikit0ns/Ukrainian_IT_Communities)
+[![Version](https://img.shields.io/badge/version-0.4--alpha-yellow.svg?style=plastic)](#)
+[![.NET](https://img.shields.io/badge/-9.0-512BD4?style=plastic&logo=dotnet&logoColor=white)](https://github.com/dotnet)
+[![Spectre.Console](https://img.shields.io/badge/Spectre.Console-💖-68217A?style=plastic&logo=powershell&logoColor=white)](https://spectreconsole.net/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg?style=plastic)](./license)
+[![Made in Ukraine](https://img.shields.io/badge/Made_in-Ukraine-blue.svg?style=plastic&labelColor=ffd500&color=0057b7&logo=ukraine&logoColor=white)](https://github.com/nikit0ns/Ukrainian_IT_Communities)
 
 <div align="center">
   <img src="./docs/assets/proctrack-header.png" width="100%" style="max-width: 820px;" alt="ProcessTracker Header">
