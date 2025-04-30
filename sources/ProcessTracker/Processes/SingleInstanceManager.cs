@@ -11,11 +11,13 @@ public class SingleInstanceManager : IDisposable
    private readonly Mutex _mutex;
    private readonly IProcessTrackerLogger _logger;
    private bool _isDisposed;
+   private bool _mutexWasCreatedByUs;
+   private string _mutexName;
 
    /// <summary>
    /// Gets whether another instance is already running
    /// </summary>
-   public bool IsAlreadyRunning { get; }
+   public bool IsAlreadyRunning { get; private set; }
 
    /// <summary>
    /// Creates a new single instance manager with the default mutex name
@@ -29,7 +31,10 @@ public class SingleInstanceManager : IDisposable
    public SingleInstanceManager(string mutexName, IProcessTrackerLogger logger)
    {
       _logger = logger;
-      _mutex = new Mutex(true, mutexName, out bool createdNew);
+      _mutexName = mutexName;
+
+      _mutex = new Mutex(true, mutexName, out var createdNew);
+      _mutexWasCreatedByUs = createdNew;
       IsAlreadyRunning = !createdNew;
    }
 
@@ -38,16 +43,53 @@ public class SingleInstanceManager : IDisposable
    /// </summary>
    public void Release()
    {
-      if (!IsAlreadyRunning && !_isDisposed)
+      if (!IsAlreadyRunning && !_isDisposed && _mutexWasCreatedByUs)
       {
          try
          {
             _mutex.ReleaseMutex();
+            _mutexWasCreatedByUs = false;
+            _logger.Info("Mutex released, allowing other instances to start");
          }
          catch (Exception ex)
          {
-            _logger.Error($"Releasing mutex: {ex.Message}");
+            _logger.Error($"Error releasing mutex: {ex.Message}");
          }
+      }
+   }
+
+   /// <summary>
+   /// Tries to reacquire the mutex, preventing other instances from starting
+   /// </summary>
+   /// <returns>True if the mutex was successfully acquired</returns>
+   public bool TryAcquire()
+   {
+      if (_isDisposed)
+         return false;
+
+      if (_mutexWasCreatedByUs)
+         return true;
+
+      try
+      {
+         bool acquired = _mutex.WaitOne(0);
+         if (acquired)
+         {
+            _mutexWasCreatedByUs = true;
+            IsAlreadyRunning = false;
+            _logger.Info("Mutex acquired, preventing other instances");
+            return true;
+         }
+         else
+         {
+            IsAlreadyRunning = true;
+            return false;
+         }
+      }
+      catch (Exception ex)
+      {
+         _logger.Error($"Error acquiring mutex: {ex.Message}");
+         return false;
       }
    }
 
@@ -59,7 +101,7 @@ public class SingleInstanceManager : IDisposable
          {
             try
             {
-               if (!IsAlreadyRunning)
+               if (_mutexWasCreatedByUs)
                {
                   _mutex.ReleaseMutex();
                }

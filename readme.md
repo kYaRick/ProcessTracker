@@ -1,6 +1,6 @@
 # ⏲️ ProcessTracker
 
-[![Version](https://img.shields.io/badge/version-0.1--alpha-yellow.svg?style=flat-square)](#)
+[![Version](https://img.shields.io/badge/version-0.3--alpha-yellow.svg?style=flat-square)](#)
 [![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?style=flat-square)](https://dotnet.microsoft.com/download/dotnet/9.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](./license)
 [![Made in Ukraine](https://img.shields.io/badge/Made_in-Ukraine-blue.svg?style=flat-square&labelColor=ffd500&color=0057b7)](https://github.com/nikit0ns/Ukrainian_IT_Communities)
@@ -47,6 +47,7 @@ proctrack [OPTIONS] <COMMAND>
 | `list` 📋 | List all tracked process pairs | `proctrack list` |
 | `clear` 🧹 | Clear all tracked process pairs | `proctrack clear` |
 | `monitor` 👁️ | Start monitoring mode with live updates | `proctrack monitor --interval 5 --auto-exit 60` |
+| `stop` 🛑 | Stop the background monitor process | `proctrack stop` |
 | `test`* 🧪 | Create and monitor a test process pair | `proctrack test` |
 
 > [!NOTE]  

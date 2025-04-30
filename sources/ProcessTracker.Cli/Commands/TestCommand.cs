@@ -38,12 +38,10 @@ public class TestCommand : Command<BasicCommandSettings>
 
          childProcess.Start();
 
-         //MonitorManager.Initialize(new QuiteLogger());
-         //MonitorManager.AddProcessPair(mainProcess.Id, childProcess.Id);
-
-
          var (service, _) = ServiceManager.GetOrCreateService(settings.QuietMode);
-         var added = service.AddProcessPair(mainProcess.Id, childProcess.Id);
+
+         var added = ServiceManager.WithTemporarilySuspendedService(service =>
+            service.AddProcessPair(mainProcess.Id, childProcess.Id));
 
          if (!settings.QuietMode)
          {

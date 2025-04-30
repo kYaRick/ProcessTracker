@@ -46,51 +46,48 @@ public static class MonitorManager
    /// </summary>
    public static bool AddProcessPair(int mainProcessId, int childProcessId)
    {
-      // First make sure the background monitor is running
-      if (!EnsureBackgroundMonitorRunning())
-         return false;
+      var success = ServiceManager.WithTemporarilySuspendedService(service =>
+      {
+         return service.AddProcessPair(mainProcessId, childProcessId);
+      }, true, _logger);
 
-      // Now add the process pair through the regular service
-      var (service, _) = ServiceManager.GetOrCreateService(true);
+      if (success)
+         EnsureBackgroundMonitorRunning();
 
-      return service.AddProcessPair(mainProcessId, childProcessId);
+      return success;
    }
 
    /// <summary>
    /// Removes a process pair from monitoring
    /// </summary>
-   public static bool RemoveProcessPair(int mainProcessId, int childProcessId)
-   {
-      var (service, _) = ServiceManager.GetOrCreateService(true);
-      return service.RemoveProcessPair(mainProcessId, childProcessId);
-   }
+   public static bool RemoveProcessPair(int mainProcessId, int childProcessId) => ServiceManager.WithTemporarilySuspendedService(service =>
+      {
+         return service.RemoveProcessPair(mainProcessId, childProcessId);
+      }, true, _logger);
 
    /// <summary>
    /// Gets all process pairs being monitored
    /// </summary>
-   public static IReadOnlyList<ProcessPair> GetAllProcessPairs()
-   {
-      var (service, _) = ServiceManager.GetOrCreateService(true);
-      return service.GetAllProcessPairs();
-   }
+   public static IReadOnlyList<ProcessPair> GetAllProcessPairs() => ServiceManager.WithTemporarilySuspendedService(service =>
+      {
+         return service.GetAllProcessPairs();
+      }, true, _logger);
 
    /// <summary>
    /// Clears all monitored process pairs
    /// </summary>
-   public static void ClearAllProcessPairs()
-   {
-      var (service, _) = ServiceManager.GetOrCreateService(true);
-      var pairs = service.GetAllProcessPairs();
-
-      foreach (var pair in pairs)
-         service.RemoveProcessPair(pair.MainProcessId, pair.ChildProcessId);
-   }
+   public static void ClearAllProcessPairs() =>
+      ServiceManager.WithTemporarilySuspendedService(service =>
+      {
+         var repository = new ProcessRepository();
+         repository.SaveAll(new List<ProcessPair>());
+         return true;
+      }, true, _logger);
 
    /// <summary>
    /// Terminates the background monitor process
    /// </summary>
-   public static void TerminateBackgroundMonitor()
-   {
+   public static void TerminateBackgroundMonitor() =>
       BackgroundLauncher.TerminateBackgroundMonitor(_logger);
-   }
 }
+

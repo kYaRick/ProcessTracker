@@ -1,4 +1,3 @@
-using ProcessTracker.Cli.Logging;
 using ProcessTracker.Cli.Services;
 using ProcessTracker.Models;
 using ProcessTracker.Processes;
@@ -14,33 +13,27 @@ public class ClearCommand : Command<BasicCommandSettings>
 {
    public override int Execute(CommandContext context, BasicCommandSettings settings)
    {
-      IProcessTrackerLogger logger = settings.QuietMode ? new QuiteLogger() : new CliLogger();
-
       try
       {
-         var (service, wasCreated) = ServiceManager.GetOrCreateService(settings.QuietMode);
-
-         if (service.IsAlreadyRunning)
+         int processCount = ServiceManager.WithTemporarilySuspendedService(service =>
          {
-            if (!settings.QuietMode)
-               AnsiConsole.MarkupLine("[yellow]Warning:[/] Another instance of ProcessTracker is already running.");
-            return 1;
-         }
+            var allPairs = service.GetAllProcessPairs();
+            int count = allPairs.Count;
 
-         var processCount = service.GetAllProcessPairs().Count;
+            // Clear all process pairs from the repository
+            var repository = new ProcessRepository();
+            repository.SaveAll(new List<ProcessPair>());
 
-         if (processCount == 0)
-         {
-            if (!settings.QuietMode)
-               AnsiConsole.MarkupLine("[blue]Info:[/] No process pairs are currently being tracked.");
-            return 0;
-         }
-
-         var repository = new ProcessRepository();
-         repository.SaveAll(new List<ProcessPair>());
+            return count;
+         }, settings.QuietMode);
 
          if (!settings.QuietMode)
-            AnsiConsole.MarkupLine($"[green]Success:[/] Cleared {processCount} tracked process pairs.");
+         {
+            if (processCount == 0)
+               AnsiConsole.MarkupLine("[blue]Info:[/] No process pairs were being tracked.");
+            else
+               AnsiConsole.MarkupLine($"[green]Success:[/] Cleared {processCount} tracked process pairs.");
+         }
 
          return 0;
       }
@@ -52,3 +45,4 @@ public class ClearCommand : Command<BasicCommandSettings>
       }
    }
 }
+

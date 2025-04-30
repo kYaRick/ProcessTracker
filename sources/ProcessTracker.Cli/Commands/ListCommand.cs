@@ -1,6 +1,4 @@
-using ProcessTracker.Cli.Logging;
-using ProcessTracker.Models;
-using ProcessTracker.Services;
+using ProcessTracker.Cli.Services;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.Diagnostics;
@@ -14,20 +12,13 @@ public class ListCommand : Command<BasicCommandSettings>
 {
    public override int Execute(CommandContext context, BasicCommandSettings settings)
    {
-      IProcessTrackerLogger logger = settings.QuietMode ? new QuiteLogger() : new CliLogger();
-
       try
       {
-         using var service = new ProcessMonitorService(logger);
-
-         if (service.IsAlreadyRunning)
+         // Use temporarily suspended service to get the process pairs
+         var processPairs = ServiceManager.WithTemporarilySuspendedService(service =>
          {
-            if (!settings.QuietMode)
-               AnsiConsole.MarkupLine("[yellow]Warning:[/] Another instance of ProcessTracker is already running.");
-            return 1;
-         }
-
-         var processPairs = service.GetAllProcessPairs();
+            return service.GetAllProcessPairs();
+         }, settings.QuietMode);
 
          if (processPairs.Count == 0)
          {
@@ -38,20 +29,24 @@ public class ListCommand : Command<BasicCommandSettings>
 
          if (!settings.QuietMode)
          {
-            var table = new Table();
+            var table = new Table()
+               .Border(TableBorder.Rounded)
+               .Title("[blue]Monitored Processes[/]");
 
-            table.AddColumn(new TableColumn("Main Process").Centered());
+            table.AddColumn(new TableColumn("Main Process").LeftAligned());
             table.AddColumn(new TableColumn("Main ID").Centered());
-            table.AddColumn(new TableColumn("Child Process").Centered());
-            table.AddColumn(new TableColumn("Child ID").Centered());
             table.AddColumn(new TableColumn("Status").Centered());
+            table.AddColumn(new TableColumn("Child Process").LeftAligned());
+            table.AddColumn(new TableColumn("Child ID").Centered());
+            table.AddColumn(new TableColumn("Added").RightAligned());
 
             foreach (var pair in processPairs)
             {
-               bool mainRunning = IsProcessRunning(pair.MainProcessId);
-               bool childRunning = IsProcessRunning(pair.ChildProcessId);
+               var mainRunning = IsProcessRunning(pair.MainProcessId);
+               var childRunning = IsProcessRunning(pair.ChildProcessId);
 
-               string status;
+               var status = "";
+
                if (mainRunning && childRunning)
                   status = "[green]Active[/]";
                else if (mainRunning)
@@ -59,23 +54,24 @@ public class ListCommand : Command<BasicCommandSettings>
                else if (childRunning)
                   status = "[yellow]Child only[/]";
                else
-                  status = "[red]Both inactive[/]";
+                  status = "[red]Inactive[/]";
 
                table.AddRow(
-                   pair.MainProcessName,
-                   pair.MainProcessId.ToString(),
-                   pair.ChildProcessName,
-                   pair.ChildProcessId.ToString(),
-                   status
+                  pair.MainProcessName,
+                  pair.MainProcessId.ToString(),
+                  status,
+                  pair.ChildProcessName,
+                  pair.ChildProcessId.ToString(),
+                  pair.Time.ToString("yyyy-MM-dd HH:mm")
                );
             }
 
-            AnsiConsole.Write(new Rule("[yellow]Tracked Process Pairs[/]").RuleStyle("grey").Centered());
             AnsiConsole.Write(table);
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine($"[blue]Total:[/] {processPairs.Count} process pairs");
          }
          else
          {
-            // In quiet mode, just output process IDs
             foreach (var pair in processPairs)
             {
                Console.WriteLine($"{pair.MainProcessId},{pair.ChildProcessId}");
@@ -96,8 +92,8 @@ public class ListCommand : Command<BasicCommandSettings>
    {
       try
       {
-         Process.GetProcessById(processId);
-         return true;
+         var process = Process.GetProcessById(processId);
+         return !process.HasExited;
       }
       catch
       {
@@ -105,3 +101,4 @@ public class ListCommand : Command<BasicCommandSettings>
       }
    }
 }
+

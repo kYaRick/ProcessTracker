@@ -23,26 +23,37 @@ public class MonitorCommand : Command<MonitorSettings>
    {
       try
       {
-         IProcessTrackerLogger logger;
-
+         // If background mode is requested, launch a new background process and exit immediately
          if (settings.BackgroundMode)
          {
-            logger = new FileLogger();
-            logger.Info("Starting monitor in background mode");
-         }
-         else
-         {
-            logger = settings.QuietMode
-               ? new QuiteLogger()
-               : new MonitorLogger(_logMessages, _maxLogMessages);
+            // Use BackgroundLauncher to start a separate process
+            bool success = BackgroundLauncher.LaunchBackgroundMonitor(
+               settings.RefreshInterval,
+               settings.AutoExitTimeout);
+
+            if (!settings.QuietMode)
+            {
+               if (success)
+                  AnsiConsole.MarkupLine("[green]Background monitor started successfully.[/]");
+               else
+                  AnsiConsole.MarkupLine("[red]Failed to start background monitor.[/]");
+            }
+
+            // Exit the current process - this is key to releasing the console
+            return success ? 0 : 1;
          }
 
-         var (service, _) = ServiceManager.GetOrCreateService(settings.QuietMode || settings.BackgroundMode, logger);
+         // Normal interactive or background instance mode
+         IProcessTrackerLogger logger = settings.QuietMode
+            ? new QuiteLogger()
+            : new MonitorLogger(_logMessages, _maxLogMessages);
+
+         var (service, _) = ServiceManager.GetOrCreateService(settings.QuietMode, logger);
          _service = service;
 
          if (service.IsAlreadyRunning)
          {
-            if (!settings.QuietMode && !settings.BackgroundMode)
+            if (!settings.QuietMode)
                AnsiConsole.MarkupLine("[yellow]Warning:[/] Another instance of ProcessTracker is already running.");
 
             logger.Warning("Another instance is already running");
@@ -51,14 +62,13 @@ public class MonitorCommand : Command<MonitorSettings>
 
          _keepRunning = true;
 
-         if (!settings.BackgroundMode)
+         if (!settings.QuietMode)
          {
             Console.CancelKeyPress += (_, e) =>
             {
                e.Cancel = true;
                _keepRunning = false;
-               if (!settings.QuietMode)
-                  AnsiConsole.MarkupLine("[blue]Exiting monitor. Process tracking continues in the background.[/]");
+               AnsiConsole.MarkupLine("[blue]Exiting monitor. Process tracking continues in the background.[/]");
             };
          }
 
@@ -67,7 +77,7 @@ public class MonitorCommand : Command<MonitorSettings>
             ? settings.AutoExitTimeout / settings.RefreshInterval
             : 0;
 
-         if (!settings.QuietMode && !settings.BackgroundMode)
+         if (!settings.QuietMode)
          {
             AnsiConsole.Clear();
             AnsiConsole.Write(new Rule("[blue]Process Tracker Monitor[/]").RuleStyle("blue"));
@@ -78,7 +88,7 @@ public class MonitorCommand : Command<MonitorSettings>
          {
             var processPairs = service.GetAllProcessPairs();
 
-            if (settings.BackgroundMode || settings.QuietMode)
+            if (settings.QuietMode)
             {
                if (processPairs.Count == 0 && settings.AutoExitTimeout > 0)
                {
@@ -159,7 +169,7 @@ public class MonitorCommand : Command<MonitorSettings>
       }
       catch (Exception ex)
       {
-         if (!settings.QuietMode && !settings.BackgroundMode)
+         if (!settings.QuietMode)
             AnsiConsole.MarkupLine($"[red]Error:[/] {ex.Message}");
          return 1;
       }

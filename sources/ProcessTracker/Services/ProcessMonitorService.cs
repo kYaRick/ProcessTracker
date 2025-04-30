@@ -59,19 +59,55 @@ public class ProcessMonitorService : IDisposable
          LoadStoredProcesses();
    }
 
+   /// <summary>
+   /// Releases the single instance lock, allowing other instances to start
+   /// </summary>
+   public void ReleaseSingleInstanceLock()
+   {
+      _logger.Info("Releasing single instance lock");
+      _singleInstance.Release();
+   }
+
+   /// <summary>
+   /// Tries to reacquire the single instance lock
+   /// </summary>
+   /// <returns>True if successfully reacquired the lock</returns>
+   public bool TryAcquireSingleInstanceLock()
+   {
+      _logger.Info("Attempting to acquire single instance lock");
+      return _singleInstance.TryAcquire();
+   }
+
    private void LoadStoredProcesses()
    {
       try
       {
          var allPairs = _repository.LoadAll();
+         var validPairs = new List<ProcessPair>();
 
          foreach (var pair in allPairs)
          {
             if (IsProcessRunning(pair.MainProcessId) && IsProcessRunning(pair.ChildProcessId))
+            {
                _monitor.StartMonitoring(pair);
+               validPairs.Add(pair);
+            }
+            else
+            {
+               _logger.Info($"Skipping invalid process pair: {pair.MainProcessName}({pair.MainProcessId}) → {pair.ChildProcessName}({pair.ChildProcessId})");
+            }
+         }
+
+         if (validPairs.Count < allPairs.Count)
+         {
+            _logger.Info($"Cleaning up {allPairs.Count - validPairs.Count} invalid process pairs");
+            _repository.SaveAll(validPairs);
          }
       }
-      catch (Exception) { }
+      catch (Exception ex)
+      {
+         _logger.Error($"Error loading stored processes: {ex.Message}");
+      }
    }
 
    /// <summary>
@@ -159,7 +195,7 @@ public class ProcessMonitorService : IDisposable
       var pairToRemove = allPairs.FirstOrDefault(p =>
          p.MainProcessId == pair.MainProcessId && p.ChildProcessId == pair.ChildProcessId);
 
-      if (pairToRemove != null)
+      if (pairToRemove is { })
       {
          allPairs.Remove(pairToRemove);
          _repository.SaveAll(allPairs);

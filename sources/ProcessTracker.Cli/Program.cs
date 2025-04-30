@@ -42,6 +42,10 @@ public static class Program
              .WithExample(["monitor", "--interval", "5", "--auto-exit", "60"])
              .WithAlias("m");
 
+         config.AddCommand<StopCommand>("stop")
+             .WithDescription("Stop the background monitor process")
+             .WithAlias("s");
+
 #if DEBUG
          config.AddCommand<TestCommand>("test")
             .WithDescription("Create and monitor a test process pair for demonstration")
