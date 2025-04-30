@@ -12,7 +12,7 @@ public class SingleInstanceManager : IDisposable
    private readonly IProcessTrackerLogger _logger;
    private bool _isDisposed;
    private bool _mutexWasCreatedByUs;
-   private string _mutexName;
+   private readonly string _mutexName;
 
    /// <summary>
    /// Gets whether another instance is already running

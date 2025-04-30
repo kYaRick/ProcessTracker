@@ -14,7 +14,6 @@ public class ListCommand : Command<BasicCommandSettings>
    {
       try
       {
-         // Use temporarily suspended service to get the process pairs
          var processPairs = ServiceManager.WithTemporarilySuspendedService(service =>
          {
             return service.GetAllProcessPairs();

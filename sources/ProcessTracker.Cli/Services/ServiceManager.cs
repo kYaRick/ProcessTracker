@@ -94,21 +94,4 @@ public static class ServiceManager
          }
       }
    }
-
-   /// <summary>
-   /// Shuts down the service instance
-   /// </summary>
-   public static void ShutdownService()
-   {
-      lock (_lock)
-      {
-         if (_serviceInstance is null)
-            return;
-
-         try { _serviceInstance.Dispose(); }
-         catch { }
-
-         _serviceInstance = null;
-      }
-   }
 }

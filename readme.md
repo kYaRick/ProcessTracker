@@ -1,6 +1,6 @@
 # ⏲️ ProcessTracker
 
-[![Version](https://img.shields.io/badge/version-0.3--alpha-yellow.svg?style=flat-square)](#)
+[![Version](https://img.shields.io/badge/version-0.4--alpha-yellow.svg?style=flat-square)](#)
 [![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?style=flat-square)](https://dotnet.microsoft.com/download/dotnet/9.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](./license)
 [![Made in Ukraine](https://img.shields.io/badge/Made_in-Ukraine-blue.svg?style=flat-square&labelColor=ffd500&color=0057b7)](https://github.com/nikit0ns/Ukrainian_IT_Communities)

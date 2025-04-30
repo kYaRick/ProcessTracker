@@ -13,7 +13,7 @@ public class StopCommand : Command<BasicCommandSettings>
    {
       try
       {
-         bool wasRunning = BackgroundLauncher.IsBackgroundMonitorRunning();
+         var wasRunning = BackgroundLauncher.IsBackgroundMonitorRunning();
 
          if (!wasRunning)
          {
@@ -22,7 +22,7 @@ public class StopCommand : Command<BasicCommandSettings>
             return 0;
          }
 
-         bool success = BackgroundLauncher.TerminateBackgroundMonitor();
+         var success = BackgroundLauncher.TerminateBackgroundMonitor();
 
          if (success)
          {

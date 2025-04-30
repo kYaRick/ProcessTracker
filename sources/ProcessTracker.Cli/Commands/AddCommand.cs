@@ -14,10 +14,12 @@ public class AddCommand : Command<ProcessPairSettings>
    {
       try
       {
-         var success = ServiceManager.WithTemporarilySuspendedService(service =>
-         {
-            return service.AddProcessPair(settings.MainProcessId, settings.ChildProcessId);
-         }, settings.QuietMode);
+         var success = ServiceManager.WithTemporarilySuspendedService
+            (
+               service =>
+                  service.AddProcessPair(settings.MainProcessId, settings.ChildProcessId),
+               settings.QuietMode
+            );
 
          if (!success)
          {
@@ -49,15 +51,15 @@ public class AddCommand : Command<ProcessPairSettings>
 
    private string GetProcessName(int processId)
    {
+      var processName = string.Empty;
+
       try
       {
-         var process = Process.GetProcessById(processId);
-         return process.ProcessName;
+         processName = Process.GetProcessById(processId).ProcessName;
       }
-      catch
-      {
-         return string.Empty;
-      }
+      catch { }
+
+      return processName;
    }
 }
 

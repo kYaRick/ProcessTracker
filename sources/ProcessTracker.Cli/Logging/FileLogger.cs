@@ -8,7 +8,7 @@ namespace ProcessTracker.Cli.Logging;
 public class FileLogger : IProcessTrackerLogger
 {
    private readonly string _logFilePath;
-   private readonly object _lockObj = new();
+   private readonly Lock _lock = new();
 
    public FileLogger()
    {
@@ -30,7 +30,7 @@ public class FileLogger : IProcessTrackerLogger
    {
       var logMessage = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{level}] {message}";
 
-      lock (_lockObj)
+      lock (_lock)
       {
          try
          {

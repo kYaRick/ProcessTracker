@@ -1,5 +1,4 @@
 using ProcessTracker.Cli.Services;
-using ProcessTracker.Models;
 using ProcessTracker.Processes;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -18,11 +17,10 @@ public class ClearCommand : Command<BasicCommandSettings>
          int processCount = ServiceManager.WithTemporarilySuspendedService(service =>
          {
             var allPairs = service.GetAllProcessPairs();
-            int count = allPairs.Count;
+            var count = allPairs.Count;
 
-            // Clear all process pairs from the repository
             var repository = new ProcessRepository();
-            repository.SaveAll(new List<ProcessPair>());
+            repository.SaveAll(new());
 
             return count;
          }, settings.QuietMode);

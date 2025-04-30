@@ -13,8 +13,7 @@ public class RemoveCommand : Command<ProcessPairSettings>
    {
       try
       {
-         // Use temporarily suspended service to remove the process pair
-         bool success = ServiceManager.WithTemporarilySuspendedService(service =>
+         var success = ServiceManager.WithTemporarilySuspendedService(service =>
          {
             return service.RemoveProcessPair(settings.MainProcessId, settings.ChildProcessId);
          }, settings.QuietMode);
