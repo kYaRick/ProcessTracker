@@ -44,18 +44,11 @@ public static class MonitorManager
    /// <summary>
    /// Adds a process pair to be monitored and ensures the background monitor is running
    /// </summary>
-   public static bool AddProcessPair(int mainProcessId, int childProcessId)
-   {
-      var success = ServiceManager.WithTemporarilySuspendedService(service =>
+   public static bool AddProcessPair(int mainProcessId, int childProcessId) =>
+      ServiceManager.WithTemporarilySuspendedService(service =>
             service.AddProcessPair(mainProcessId, childProcessId),
          quietMode: true,
          customLogger: _logger);
-
-      if (success)
-         EnsureBackgroundMonitorRunning();
-
-      return success;
-   }
 
    /// <summary>
    /// Removes a process pair from monitoring

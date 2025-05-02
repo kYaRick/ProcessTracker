@@ -292,12 +292,14 @@ public class MonitorCommand : Command<MonitorSettings>
          .Title("[blue]Monitored Processes[/]")
          .Expand();
 
-      table.AddColumn(new TableColumn("Main Process").Width(18));
-      table.AddColumn(new TableColumn("Main ID").Width(8).Centered());
-      table.AddColumn(new TableColumn("Status").Width(8).Centered());
-      table.AddColumn(new TableColumn("Child Process").Width(18));
-      table.AddColumn(new TableColumn("Child ID").Width(8).Centered());
-      table.AddColumn(new TableColumn("Added").Width(16).Centered());
+      table.AddColumns(
+         new TableColumn("Main Process").Width(18),
+         new TableColumn("Main ID").Width(8).Centered(),
+         new TableColumn("Status").Width(8).Centered(),
+         new TableColumn("Child Process").Width(18),
+         new TableColumn("Child ID").Width(8).Centered(),
+         new TableColumn("Added").Width(16).Centered()
+      );
 
       foreach (var pair in processPairs)
       {
