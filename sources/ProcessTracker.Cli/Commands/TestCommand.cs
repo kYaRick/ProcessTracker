@@ -40,8 +40,7 @@ public class TestCommand : Command<BasicCommandSettings>
 
          var (service, _) = ServiceManager.GetOrCreateService(settings.QuietMode);
 
-         var added = ServiceManager.WithTemporarilySuspendedService(service =>
-            service.AddProcessPair(mainProcess.Id, childProcess.Id));
+         var added = service.AddProcessPair(mainProcess.Id, childProcess.Id);
 
          if (!settings.QuietMode)
          {
@@ -55,6 +54,9 @@ public class TestCommand : Command<BasicCommandSettings>
             }
             else
             {
+               Process.GetProcessById(mainProcess.Id).Kill();
+               Process.GetProcessById(childProcess.Id).Kill();
+
                AnsiConsole.MarkupLine("[red]Failed to add test process pair to monitoring.[/]");
             }
          }

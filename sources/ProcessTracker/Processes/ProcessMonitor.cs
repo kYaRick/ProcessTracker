@@ -14,8 +14,8 @@ public class ProcessMonitor : IDisposable
    private Task? _monitoringTask;
    private readonly TimeSpan _checkInterval;
    private readonly IProcessTrackerLogger _logger;
-   private bool _isDisposed;
    private volatile bool _isMonitoring;
+   private bool _isDisposed;
 
    /// <summary>
    /// Gets whether the monitor is actively running
@@ -243,7 +243,7 @@ public class ProcessMonitor : IDisposable
       {
          _logger.Info($"Process {processId} already exited.");
       }
-      catch (Exception ex)
+      catch
       {
          _logger.Error($"Failed to terminate {processId}.");
          throw;

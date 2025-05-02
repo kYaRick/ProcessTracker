@@ -1,4 +1,6 @@
 using ProcessTracker.Cli.Services;
+using ProcessTracker.Models;
+using ProcessTracker.Processes;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using System.Diagnostics;
@@ -14,10 +16,22 @@ public class ListCommand : Command<BasicCommandSettings>
    {
       try
       {
-         var processPairs = ServiceManager.WithTemporarilySuspendedService(service =>
+         var isBackgroundRunning = BackgroundLauncher.IsBackgroundMonitorRunning();
+
+         IReadOnlyList<ProcessPair> processPairs;
+
+         if (isBackgroundRunning)
          {
-            return service.GetAllProcessPairs();
-         }, settings.QuietMode);
+            var repository = new ProcessRepository();
+            processPairs = repository.LoadAll();
+         }
+         else
+         {
+            processPairs = ServiceManager.WithTemporarilySuspendedService(
+               service => service.GetAllProcessPairs(),
+               settings.QuietMode,
+               terminateBackgroundProcess: false);
+         }
 
          if (processPairs.Count == 0)
          {
@@ -32,12 +46,13 @@ public class ListCommand : Command<BasicCommandSettings>
                .Border(TableBorder.Rounded)
                .Title("[blue]Monitored Processes[/]");
 
-            table.AddColumn(new TableColumn("Main Process").LeftAligned());
-            table.AddColumn(new TableColumn("Main ID").Centered());
-            table.AddColumn(new TableColumn("Status").Centered());
-            table.AddColumn(new TableColumn("Child Process").LeftAligned());
-            table.AddColumn(new TableColumn("Child ID").Centered());
-            table.AddColumn(new TableColumn("Added").RightAligned());
+            table.AddColumns(
+               new TableColumn("Main Process").LeftAligned(),
+               new TableColumn("Main ID").Centered(),
+               new TableColumn("Status").Centered(),
+               new TableColumn("Child Process").LeftAligned(),
+               new TableColumn("Child ID").Centered(),
+               new TableColumn("Added").RightAligned());
 
             foreach (var pair in processPairs)
             {
@@ -100,4 +115,3 @@ public class ListCommand : Command<BasicCommandSettings>
       }
    }
 }
-

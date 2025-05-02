@@ -29,6 +29,7 @@ public class MonitorCommand : Command<MonitorSettings>
          if (settings.BackgroundMode)
          {
             var success = BackgroundLauncher.LaunchBackgroundMonitor(
+               null,
                settings.RefreshInterval,
                settings.AutoExitTimeout);
 

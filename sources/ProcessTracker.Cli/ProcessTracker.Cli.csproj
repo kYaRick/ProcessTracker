@@ -11,7 +11,7 @@
 		<Version>$(TrackerVersion)</Version>
 		<PackAsTool>True</PackAsTool>
 		<ToolCommandName>proctrack</ToolCommandName>
-		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+		<GeneratePackageOnBuild>False</GeneratePackageOnBuild>
 	</PropertyGroup>
 
 	<ItemGroup>

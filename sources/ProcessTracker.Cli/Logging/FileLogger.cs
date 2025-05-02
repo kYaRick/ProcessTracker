@@ -12,9 +12,16 @@ public class FileLogger : IProcessTrackerLogger
 
    public FileLogger()
    {
-      var logDir = Path.Combine(Path.GetTempPath(), "ProcessTracker");
+      var logDir = Path.Combine(Path.GetTempPath(), nameof(ProcessTracker));
       Directory.CreateDirectory(logDir);
       _logFilePath = Path.Combine(logDir, "monitor.log");
+   }
+
+   public FileLogger(string filename)
+   {
+      var logDir = Path.Combine(Path.GetTempPath(), nameof(ProcessTracker));
+      Directory.CreateDirectory(logDir);
+      _logFilePath = Path.Combine(logDir, filename);
    }
 
    public void Info(string message) =>

@@ -1,13 +1,14 @@
 # ⏲️ ProcessTracker
 
-<div align="center">
 
-[![Version](https://img.shields.io/badge/version-0.4--alpha-yellow.svg?style=plastic)](#)
 [![.NET](https://img.shields.io/badge/-9.0-512BD4?style=plastic&logo=dotnet&logoColor=white)](https://github.com/dotnet)
-[![Spectre.Console](https://img.shields.io/badge/Spectre.Console-💖-68217A?style=plastic&logo=powershell&logoColor=white)](https://spectreconsole.net/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg?style=plastic)](license)
+[![Spectre.Console](https://img.shields.io/badge/💜_Spectre.Console-1e293a?style=plastic&logo=powershell&logoColor=white)](https://spectreconsole.net/)
+[![Version](https://img.shields.io/badge/version-0.5--alpha-yellow.svg?style=plastic)](#)
+[![License](https://img.shields.io/badge/license-MIT-green.svg?style=plastic)](LICENSE)
 [![Made in Ukraine](https://img.shields.io/badge/Made_in-Ukraine-blue.svg?style=plastic&labelColor=ffd500&color=0057b7&logo=ukraine&logoColor=white)](https://github.com/nikit0ns/Ukrainian_IT_Communities)
 
+
+<div align="center">
   <img src="./docs/assets/proctrack-header.png" width="100%" style="max-width: 820px;" alt="ProcessTracker Header">
   <br>
   <img src="./docs/assets/process-tracker.gif" width="100%" style="max-width: 800px;" alt="ProcessTracker Demo">
@@ -92,7 +93,7 @@ Contributions are welcome! Feel free to submit a Pull Request or open an Issue.
 
 ## License 📄
 
-This project is licensed under the MIT License - see the [license](license) file for details.
+This project is licensed under the MIT License - see the [license](LICENSE) file for details.
 
 ---
 

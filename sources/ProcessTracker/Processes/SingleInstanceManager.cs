@@ -33,7 +33,7 @@ public class SingleInstanceManager : IDisposable
       _logger = logger;
       _mutexName = mutexName;
 
-      _mutex = new Mutex(true, mutexName, out var createdNew);
+      _mutex = new(true, mutexName, out var createdNew);
       _mutexWasCreatedByUs = createdNew;
       IsAlreadyRunning = !createdNew;
    }
@@ -72,7 +72,7 @@ public class SingleInstanceManager : IDisposable
 
       try
       {
-         bool acquired = _mutex.WaitOne(0);
+         var acquired = _mutex.WaitOne(0);
          if (acquired)
          {
             _mutexWasCreatedByUs = true;

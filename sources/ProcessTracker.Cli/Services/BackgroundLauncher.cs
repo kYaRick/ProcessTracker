@@ -1,6 +1,7 @@
 ﻿using ConfigRunner;
 using ConfigRunner.Constants;
 using ProcessTracker.Models;
+using ProcessTracker.Processes;
 using System.Diagnostics;
 using System.Reflection;
 
@@ -13,7 +14,7 @@ public static class BackgroundLauncher
 {
    private static ConfigurationManager _configManager = new(ConfigurationType.Temp, nameof(ProcessTracker));
    private static Process? _backgroundProcess;
-   private static readonly object _lockObj = new object();
+   private static readonly Lock _lockObj = new();
    private static readonly string _pidFilePath = Path.Combine(_configManager.ConfigurationDirectory, "background.log");
 
    /// <summary>
@@ -23,7 +24,7 @@ public static class BackgroundLauncher
    /// <param name="autoExitTimeout">Auto-exit timeout in intervals (0 to disable)</param>
    /// <param name="logger">Logger to use for reporting</param>
    /// <returns>True if launched successfully, false otherwise</returns>
-   public static bool LaunchBackgroundMonitor(int refreshInterval = 3, int autoExitTimeout = 6, IProcessTrackerLogger? logger = null)
+   public static bool LaunchBackgroundMonitor(IProcessTrackerLogger? logger = null, int refreshInterval = 3, int autoExitTimeout = 6)
    {
       lock (_lockObj)
       {
@@ -44,6 +45,11 @@ public static class BackgroundLauncher
                   logger?.Error("Could not determine executable path");
                   return false;
                }
+            }
+
+            if (MonitorManager.RefreshInterval <= 0)
+            {
+               MonitorManager.Initialize(logger ?? new ProcessLogs(), refreshInterval, autoExitTimeout);
             }
 
             var args = $"monitor --quiet --interval {refreshInterval} --auto-exit {autoExitTimeout}";
@@ -70,6 +76,8 @@ public static class BackgroundLauncher
             File.WriteAllText(_pidFilePath, _backgroundProcess.Id.ToString());
 
             logger?.Info($"Background monitor launched (PID: {_backgroundProcess.Id})");
+
+            Thread.Sleep(500);
             return true;
          }
          catch (Exception ex)

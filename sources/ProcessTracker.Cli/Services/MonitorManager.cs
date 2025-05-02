@@ -12,16 +12,16 @@ public static class MonitorManager
    private static bool _isInitialized;
    private static IProcessTrackerLogger? _logger;
 
-   private static int _refreshInterval;
-   private static int _autoExitTimeout;
+   public static int RefreshInterval { get; private set; }
+   public static int AutoExitTimeout { get; private set; }
 
    /// <summary>
    /// Initializes the monitor manager with a logger
    /// </summary>
    public static void Initialize(IProcessTrackerLogger logger, int refreshInterval = 3, int autoExitTimeout = 6)
    {
-      _refreshInterval = refreshInterval;
-      _autoExitTimeout = autoExitTimeout;
+      RefreshInterval = refreshInterval;
+      AutoExitTimeout = autoExitTimeout;
 
       lock (_lock)
       {
@@ -36,9 +36,9 @@ public static class MonitorManager
    public static bool EnsureBackgroundMonitorRunning()
    {
       if (!_isInitialized)
-         Initialize(new ProcessLogs());
+         Initialize(new ProcessLogs(), RefreshInterval, AutoExitTimeout);
 
-      return BackgroundLauncher.LaunchBackgroundMonitor(_refreshInterval, _autoExitTimeout, _logger);
+      return BackgroundLauncher.LaunchBackgroundMonitor(_logger, RefreshInterval, AutoExitTimeout);
    }
 
    /// <summary>
@@ -47,9 +47,9 @@ public static class MonitorManager
    public static bool AddProcessPair(int mainProcessId, int childProcessId)
    {
       var success = ServiceManager.WithTemporarilySuspendedService(service =>
-      {
-         return service.AddProcessPair(mainProcessId, childProcessId);
-      }, true, _logger);
+            service.AddProcessPair(mainProcessId, childProcessId),
+         quietMode: true,
+         customLogger: _logger);
 
       if (success)
          EnsureBackgroundMonitorRunning();
@@ -61,28 +61,32 @@ public static class MonitorManager
    /// Removes a process pair from monitoring
    /// </summary>
    public static bool RemoveProcessPair(int mainProcessId, int childProcessId) => ServiceManager.WithTemporarilySuspendedService(service =>
-      {
-         return service.RemoveProcessPair(mainProcessId, childProcessId);
-      }, true, _logger);
+         service.RemoveProcessPair(mainProcessId, childProcessId),
+      quietMode: true,
+      customLogger: _logger);
 
    /// <summary>
    /// Gets all process pairs being monitored
    /// </summary>
-   public static IReadOnlyList<ProcessPair> GetAllProcessPairs() => ServiceManager.WithTemporarilySuspendedService(service =>
-      {
-         return service.GetAllProcessPairs();
-      }, true, _logger);
+   public static IReadOnlyList<ProcessPair> GetAllProcessPairs() => ServiceManager
+      .WithTemporarilySuspendedService(
+         service =>
+            service.GetAllProcessPairs(),
+         quietMode: true,
+         customLogger: _logger);
 
    /// <summary>
    /// Clears all monitored process pairs
    /// </summary>
    public static void ClearAllProcessPairs() =>
       ServiceManager.WithTemporarilySuspendedService(service =>
-      {
-         var repository = new ProcessRepository();
-         repository.SaveAll(new List<ProcessPair>());
-         return true;
-      }, true, _logger);
+         {
+            var repository = new ProcessRepository();
+            repository.SaveAll(new());
+            return true;
+         },
+         quietMode: true,
+         customLogger: _logger);
 
    /// <summary>
    /// Terminates the background monitor process

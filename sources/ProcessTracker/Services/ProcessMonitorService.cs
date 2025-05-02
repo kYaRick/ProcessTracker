@@ -55,8 +55,7 @@ public class ProcessMonitorService : IDisposable
 
       _monitor.ProcessPairTerminated += OnProcessPairTerminated;
 
-      if (!IsAlreadyRunning)
-         LoadStoredProcesses();
+      LoadStoredProcesses();
    }
 
    /// <summary>
@@ -181,13 +180,8 @@ public class ProcessMonitorService : IDisposable
    /// Gets all process pairs being monitored
    /// </summary>
    /// <returns>List of all monitored process pairs</returns>
-   public IReadOnlyList<ProcessPair> GetAllProcessPairs()
-   {
-      if (IsAlreadyRunning)
-         return Array.Empty<ProcessPair>();
-
-      return _monitor.GetMonitoredProcesses();
-   }
+   public IReadOnlyList<ProcessPair> GetAllProcessPairs() =>
+      _monitor.GetMonitoredProcesses();
 
    private void OnProcessPairTerminated(object? sender, ProcessPair pair)
    {
