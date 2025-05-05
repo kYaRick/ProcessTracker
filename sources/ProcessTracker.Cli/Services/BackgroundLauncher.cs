@@ -168,7 +168,7 @@ public static class BackgroundLauncher
             {
                try
                {
-                  string pidContent = File.ReadAllText(_pidFilePath);
+                  var pidContent = File.ReadAllText(_pidFilePath);
                   if (int.TryParse(pidContent, out int pid))
                   {
                      try

@@ -8,7 +8,7 @@ namespace ProcessTracker.Services
    /// A wrapper class that allows using ProcessTracker functionality in other projects
    /// through either direct API calls or by managing the background CLI process
    /// </summary>
-   public class BackgroundWorker : IDisposable
+   public class BackgroundRunner : IDisposable
    {
       private readonly IProcessTrackerLogger _logger;
       private bool _isDisposed;
@@ -18,15 +18,16 @@ namespace ProcessTracker.Services
       /// <summary>
       /// Gets whether the background monitor is currently running
       /// </summary>
-      public bool IsRunning => BackgroundLauncher.IsBackgroundMonitorRunning();
+      public bool IsRunning =>
+         BackgroundLauncher.IsBackgroundMonitorRunning();
 
       /// <summary>
-      /// Creates a new BackgroundWorker with specified settings
+      /// Creates a new BackgroundRunner with specified settings
       /// </summary>
       /// <param name="logger">Optional logger for output messages</param>
       /// <param name="refreshInterval">Refresh interval in seconds (default: 3)</param>
       /// <param name="autoExitTimeout">Auto-exit timeout in intervals (0 to disable, default: 6)</param>
-      public BackgroundWorker(IProcessTrackerLogger? logger = null, int refreshInterval = 3, int autoExitTimeout = 6)
+      public BackgroundRunner(IProcessTrackerLogger? logger = null, int refreshInterval = 3, int autoExitTimeout = 6)
       {
          _logger = logger ?? new ProcessLogs();
          _refreshInterval = Math.Max(1, refreshInterval);
