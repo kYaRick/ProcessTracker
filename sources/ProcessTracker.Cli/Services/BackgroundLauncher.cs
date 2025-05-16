@@ -36,8 +36,8 @@ public static class BackgroundLauncher
 
          try
          {
-            var exePath = Process.GetCurrentProcess().MainModule?.FileName;
-            if (string.IsNullOrWhiteSpace(exePath))
+            var exePath = Path.Combine(Directory.GetCurrentDirectory(), "ProcessTracker.Cli.exe");
+            if (string.IsNullOrWhiteSpace(exePath) || !File.Exists(exePath))
             {
                exePath = Assembly.GetEntryAssembly()?.Location;
                if (string.IsNullOrWhiteSpace(exePath))

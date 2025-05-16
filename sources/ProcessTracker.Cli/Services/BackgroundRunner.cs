@@ -45,7 +45,7 @@ namespace ProcessTracker.Services
          if (IsRunning)
          {
             _logger.Info("Background monitor is already running");
-            return true;
+            return false;
          }
 
          return BackgroundLauncher.LaunchBackgroundMonitor(_logger, _refreshInterval, _autoExitTimeout);
@@ -116,8 +116,7 @@ namespace ProcessTracker.Services
          int childProcessId,
          bool isAutoRestart)
       {
-         if (BackgroundLauncher.IsBackgroundMonitorRunning() && isAutoRestart)
-            Stop();
+         Stop();
 
          var isSuccess = action(mainProcessId, childProcessId);
 

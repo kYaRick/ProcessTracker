@@ -29,8 +29,7 @@ public class ListCommand : Command<BasicCommandSettings>
          {
             processPairs = ServiceManager.WithTemporarilySuspendedService(
                service => service.GetAllProcessPairs(),
-               settings.QuietMode,
-               terminateBackgroundProcess: false);
+               settings.QuietMode);
          }
 
          if (processPairs.Count == 0)

@@ -45,5 +45,5 @@ public class ProcessRepository
    /// </summary>
    /// <returns>True if at least one process pair exists, otherwise false</returns>
    public bool HasAny() =>
-      LoadAll().Count > 0;
+      LoadAll().Any();
 }

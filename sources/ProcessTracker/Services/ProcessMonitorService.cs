@@ -117,37 +117,52 @@ public class ProcessMonitorService : IDisposable
    /// <returns>True if the pair was added successfully, false otherwise</returns>
    public bool AddProcessPair(int mainProcessId, int childProcessId)
    {
+      var needToReacquireLock = false;
+
       if (IsAlreadyRunning)
-         return false;
-
-      var mainProcessName = GetProcessName(mainProcessId);
-      var childProcessName = GetProcessName(childProcessId);
-
-      if (string.IsNullOrWhiteSpace(mainProcessName) || string.IsNullOrWhiteSpace(childProcessName))
-         return false;
-
-      var pair = new ProcessPair
       {
-         MainProcessId = mainProcessId,
-         MainProcessName = mainProcessName,
-         ChildProcessId = childProcessId,
-         ChildProcessName = childProcessName,
-         Time = DateTime.UtcNow
-      };
+         _singleInstance.Release();
+         needToReacquireLock = true;
+      }
 
-      var monitoringStarted = _monitor.StartMonitoring(pair);
-      if (!monitoringStarted)
-         return false;
+      try
+      {
+         var mainProcessName = GetProcessName(mainProcessId);
+         var childProcessName = GetProcessName(childProcessId);
 
-      var allPairs = _repository.LoadAll();
+         if (string.IsNullOrWhiteSpace(mainProcessName) || string.IsNullOrWhiteSpace(childProcessName))
+            return false;
 
-      if (allPairs.Any(p => p.MainProcessId == mainProcessId && p.ChildProcessId == childProcessId))
+         var pair = new ProcessPair
+         {
+            MainProcessId = mainProcessId,
+            MainProcessName = mainProcessName,
+            ChildProcessId = childProcessId,
+            ChildProcessName = childProcessName,
+            Time = DateTime.UtcNow
+         };
+
+         var monitoringStarted = _monitor.StartMonitoring(pair);
+         if (!monitoringStarted)
+            return false;
+
+         var allPairs = _repository.LoadAll();
+
+         if (allPairs.Any(p => p.MainProcessId == mainProcessId && p.ChildProcessId == childProcessId))
+            return true;
+
+         allPairs.Add(pair);
+         _repository.SaveAll(allPairs);
+
          return true;
-
-      allPairs.Add(pair);
-      _repository.SaveAll(allPairs);
-
-      return true;
+      }
+      finally
+      {
+         if (needToReacquireLock)
+         {
+            _singleInstance.TryAcquire();
+         }
+      }
    }
 
    /// <summary>
@@ -158,22 +173,37 @@ public class ProcessMonitorService : IDisposable
    /// <returns>True if the pair was removed successfully, false otherwise</returns>
    public bool RemoveProcessPair(int mainProcessId, int childProcessId)
    {
+      var needToReacquireLock = false;
+
       if (IsAlreadyRunning)
-         return false;
+      {
+         _singleInstance.Release();
+         needToReacquireLock = true;
+      }
 
-      var allPairs = _repository.LoadAll();
-      var pairToRemove = allPairs.FirstOrDefault(p =>
-         p.MainProcessId == mainProcessId && p.ChildProcessId == childProcessId);
+      try
+      {
+         var allPairs = _repository.LoadAll();
+         var pairToRemove = allPairs.FirstOrDefault(p =>
+            p.MainProcessId == mainProcessId && p.ChildProcessId == childProcessId);
 
-      if (pairToRemove == null)
-         return false;
+         if (pairToRemove == null)
+            return false;
 
-      _monitor.StopMonitoring(pairToRemove);
+         _monitor.StopMonitoring(pairToRemove);
 
-      allPairs.Remove(pairToRemove);
-      _repository.SaveAll(allPairs);
+         allPairs.Remove(pairToRemove);
+         _repository.SaveAll(allPairs);
 
-      return true;
+         return true;
+      }
+      finally
+      {
+         if (needToReacquireLock)
+         {
+            _singleInstance.TryAcquire();
+         }
+      }
    }
 
    /// <summary>
@@ -193,6 +223,47 @@ public class ProcessMonitorService : IDisposable
       {
          allPairs.Remove(pairToRemove);
          _repository.SaveAll(allPairs);
+      }
+   }
+
+   /// <summary>
+   /// Refreshes the monitor with the latest process pairs from the repository
+   /// </summary>
+   public void RefreshFromRepository()
+   {
+      try
+      {
+         var allPairs = _repository.LoadAll();
+         var currentPairs = _monitor.GetMonitoredProcesses();
+
+         foreach (var pair in allPairs)
+         {
+            if (!currentPairs.Any(p =>
+                p.MainProcessId == pair.MainProcessId &&
+                p.ChildProcessId == pair.ChildProcessId))
+            {
+               if (IsProcessRunning(pair.MainProcessId) && IsProcessRunning(pair.ChildProcessId))
+               {
+                  _monitor.StartMonitoring(pair);
+                  _logger.Info($"Added new process pair during refresh: {pair.MainProcessName}({pair.MainProcessId}) → {pair.ChildProcessName}({pair.ChildProcessId})");
+               }
+            }
+         }
+
+         foreach (var currentPair in currentPairs)
+         {
+            if (!allPairs.Any(p =>
+                p.MainProcessId == currentPair.MainProcessId &&
+                p.ChildProcessId == currentPair.ChildProcessId))
+            {
+               _monitor.StopMonitoring(currentPair);
+               _logger.Info($"Removed process pair during refresh: {currentPair.MainProcessName}({currentPair.MainProcessId}) → {currentPair.ChildProcessName}({currentPair.ChildProcessId})");
+            }
+         }
+      }
+      catch (Exception ex)
+      {
+         _logger.Error($"Error refreshing processes from repository: {ex.Message}");
       }
    }
 

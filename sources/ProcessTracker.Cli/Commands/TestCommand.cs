@@ -41,6 +41,11 @@ public class TestCommand : Command<BasicCommandSettings>
          var (service, _) = ServiceManager.GetOrCreateService(settings.QuietMode);
          var added = service.AddProcessPair(mainProcess.Id, childProcess.Id);
 
+         //var bgr = new BackgroundRunner();
+         //var added = bgr.AddProcessPair(mainProcess.Id, childProcess.Id, true);
+         //added &= bgr.AddProcessPair(mainProcess.Id, childProcess.Id, true);
+
+
          if (!settings.QuietMode)
          {
             if (added)

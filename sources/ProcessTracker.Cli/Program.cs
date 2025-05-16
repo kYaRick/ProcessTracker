@@ -46,6 +46,11 @@ public static class Program
              .WithDescription("Stop the background monitor process")
              .WithAlias("s");
 
+         config.AddCommand<ProcessSnapshotCommand>("snapshot")
+             .WithDescription("Take snapshots of processes and manage them")
+             .WithExample(["snapshot", "--process", "WINWORD", "--before"])
+             .WithExample(["snapshot", "--process", "EXCEL", "--after"]);
+
 #if DEBUG
          config.AddCommand<TestCommand>("test")
             .WithDescription("Create and monitor a test process pair for demonstration")

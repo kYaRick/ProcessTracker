@@ -7,12 +7,12 @@ namespace ProcessTracker.Processes;
 /// </summary>
 public class SingleInstanceManager : IDisposable
 {
-   private const string DEFAULT_MUTEX_NAME = "Global\\ProcessTrackerSingleInstanceMutex";
+   private const string DEFAULT_MUTEX_NAME = @"Global\ProcessTrackerSingleInstanceMutex";
    private readonly Mutex _mutex;
-   private readonly IProcessTrackerLogger _logger;
-   private bool _isDisposed;
    private bool _mutexWasCreatedByUs;
-   private readonly string _mutexName;
+   private bool _isDisposed;
+
+   private readonly IProcessTrackerLogger _logger;
 
    /// <summary>
    /// Gets whether another instance is already running
@@ -31,10 +31,10 @@ public class SingleInstanceManager : IDisposable
    public SingleInstanceManager(string mutexName, IProcessTrackerLogger logger)
    {
       _logger = logger;
-      _mutexName = mutexName;
 
       _mutex = new(true, mutexName, out var createdNew);
       _mutexWasCreatedByUs = createdNew;
+
       IsAlreadyRunning = !createdNew;
    }
 
@@ -43,7 +43,7 @@ public class SingleInstanceManager : IDisposable
    /// </summary>
    public void Release()
    {
-      if (!IsAlreadyRunning && !_isDisposed && _mutexWasCreatedByUs)
+      if (!IsAlreadyRunning && !_isDisposed)
       {
          try
          {
@@ -73,18 +73,19 @@ public class SingleInstanceManager : IDisposable
       try
       {
          var acquired = _mutex.WaitOne(0);
+
          if (acquired)
          {
             _mutexWasCreatedByUs = true;
             IsAlreadyRunning = false;
-            _logger.Info("Mutex acquired, preventing other instances");
-            return true;
          }
          else
          {
+            _mutexWasCreatedByUs = false;
             IsAlreadyRunning = true;
-            return false;
          }
+
+         return _mutexWasCreatedByUs;
       }
       catch (Exception ex)
       {

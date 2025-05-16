@@ -54,68 +54,42 @@ public static class ServiceManager
    }
 
    /// <summary>
-   /// Temporarily stops the service instance to perform an operation, then restores it
+   /// Performs an operation on the service while temporarily suspending the single instance lock
    /// </summary>
-   /// <param name="action">The action to perform while the service is stopped</param>
-   /// <param name="quietMode">Whether to suppress output</param>
-   /// <param name="terminateBackgroundProcess">Whether to terminate the background process</param>
-   /// <param name="customLogger">Optional custom logger to use</param>
-   /// <returns>The result of the action</returns>
+   /// <typeparam name="T">The return type of the operation</typeparam>
+   /// <param name="operation">The operation to perform on the service</param>
+   /// <param name="quietMode">Whether to operate in quiet mode</param>
+   /// <param name="customLogger">Optional logger to use</param>
+   /// <returns>The result of the operation</returns>
    public static T WithTemporarilySuspendedService<T>(
-   Func<ProcessMonitorService, T> action,
-   bool quietMode = false,
-   bool terminateBackgroundProcess = false,
-   IProcessTrackerLogger? customLogger = null)
+       Func<ProcessMonitorService, T> operation,
+       bool quietMode = false,
+       IProcessTrackerLogger? customLogger = null)
    {
-      T result = default!;
+      var (service, cleanup) = GetOrCreateService(quietMode, customLogger);
 
-      lock (_lock)
+      var wasRunning = service.IsAlreadyRunning;
+
+      if (wasRunning)
       {
-         _wasInstanceRunning = false;
-
-         var wasBackgroundRunning = BackgroundLauncher.IsBackgroundMonitorRunning();
-
-         customLogger?.Info($"Background monitor running: {wasBackgroundRunning}");
-
-         if (wasBackgroundRunning)
-         {
-            _wasInstanceRunning = true;
-
-            if (terminateBackgroundProcess)
-            {
-               customLogger?.Info("Terminating background monitor");
-               BackgroundLauncher.TerminateBackgroundMonitor(customLogger);
-               Thread.Sleep(1000);
-            }
-         }
-
-         var (service, _) = GetOrCreateService(quietMode, customLogger);
-
          service.ReleaseSingleInstanceLock();
+      }
 
-         try
+      try
+      {
+         return operation(service);
+      }
+      finally
+      {
+         if (wasRunning)
          {
-            customLogger?.Info("Executing requested action");
-            result = action.Invoke(service);
-         }
-         finally
-         {
-            var lockAcquired = service.TryAcquireSingleInstanceLock();
-            customLogger?.Info($"Re-acquired lock: {lockAcquired}");
-
-            if (_wasInstanceRunning && terminateBackgroundProcess)
-            {
-               customLogger?.Info("Restarting background monitor");
-               var success = BackgroundLauncher.LaunchBackgroundMonitor(
-                  customLogger,
-                  MonitorManager.RefreshInterval,
-                  MonitorManager.AutoExitTimeout);
-
-               customLogger?.Info($"Background monitor restart {(success ? "succeeded" : "failed")}");
-            }
+            service.TryAcquireSingleInstanceLock();
          }
 
-         return result;
+         if (cleanup)
+         {
+            service.Dispose();
+         }
       }
    }
 }

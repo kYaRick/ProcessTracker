@@ -21,6 +21,7 @@ public class MonitorCommand : Command<MonitorSettings>
    private readonly Stopwatch _uptime = new();
    private int _totalProcessed = 0;
    private Timer? _secondsTimer;
+   private HashSet<(int MainId, int ChildId)> _lastKnownPairs = new();
 
    public override int Execute(CommandContext context, MonitorSettings settings)
    {
@@ -125,7 +126,26 @@ public class MonitorCommand : Command<MonitorSettings>
                {
                   while (_keepRunning)
                   {
+                     service.RefreshFromRepository();
+
                      var processPairs = service.GetAllProcessPairs();
+
+                     var currentPairIds = new HashSet<(int MainId, int ChildId)>(
+                         processPairs.Select(p => (p.MainProcessId, p.ChildProcessId)));
+
+                     var addedPairs = currentPairIds.Except(_lastKnownPairs).ToList();
+                     foreach (var pair in addedPairs)
+                     {
+                        _logMessages.Enqueue($"[green]Process pair added: {pair.MainId} → {pair.ChildId}[/]");
+                     }
+
+                     var removedPairs = _lastKnownPairs.Except(currentPairIds).ToList();
+                     foreach (var pair in removedPairs)
+                     {
+                        _logMessages.Enqueue($"[yellow]Process pair removed: {pair.MainId} → {pair.ChildId}[/]");
+                     }
+
+                     _lastKnownPairs = currentPairIds;
 
                      if (settings.QuietMode)
                      {

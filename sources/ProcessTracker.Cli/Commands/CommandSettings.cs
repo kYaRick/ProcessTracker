@@ -78,4 +78,24 @@ public class MonitorSettings : BasicCommandSettings
 
       return ValidationResult.Success();
    }
+
+   /// <summary>
+   /// Settings for the process snapshot command
+   /// </summary>
+   public class ProcessSnapshotCommandSettings : BasicCommandSettings
+   {
+      [CommandOption("--before")]
+      [Description("Take a snapshot of processes before an operation")]
+      [DefaultValue(false)]
+      public bool Before { get; set; }
+
+      [CommandOption("--after")]
+      [Description("Take a snapshot of processes after an operation and close any new instances")]
+      [DefaultValue(false)]
+      public bool After { get; set; }
+
+      [CommandOption("-p|--process")]
+      [Description("Specify the process name to track (e.g., 'WINWORD' for Word)")]
+      public string? ProcessName { get; set; }
+   }
 }
