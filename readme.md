@@ -51,6 +51,7 @@ proctrack [OPTIONS] <COMMAND>
 | `clear` 🧹 | Clear all tracked process pairs | `proctrack clear` |
 | `monitor` 👁️ | Start monitoring mode with live updates | `proctrack monitor --interval 5 --auto-exit 60` |
 | `stop` 🛑 | Stop the background monitor process | `proctrack stop` |
+| `snapshot` 📸 | Take snapshots of processes and manage them | `proctrack snapshot --process WINWORD --before` |
 | `test`* 🧪 | Create and monitor a test process pair | `proctrack test` |
 
 > [!NOTE]  
@@ -74,6 +75,28 @@ add `
 && `
 .\ProcessTracker.Cli.exe monitor
 ```
+
+## 📸 Using the Snapshot Command
+
+The `snapshot` command helps with tracking processes created during operations and cleaning them up afterward. This is especially useful for applications like Microsoft Office that may leave behind orphaned processes.
+
+### How it works:
+
+1. **Before** mode captures the currently running processes with a specific name
+2. **After** mode detects any new processes with the same name and terminates them
+
+### Options:
+
+- `--process` / `-p`: Specifies the process name to track (e.g., 'WINWORD', 'EXCEL')
+- `--before`: Takes a snapshot of processes before an operation
+- `--after`: Takes a snapshot after an operation and terminates new instances
+- `--quiet` / `-q`: Suppresses detailed output
+
+### Common Use Cases:
+
+- Cleaning up Word, Excel, or PowerPoint processes after automation tasks
+- Finding and terminating background processes left behind by applications
+- Testing applications to identify process leaks
 
 ## Project Structure 🏗️
 
