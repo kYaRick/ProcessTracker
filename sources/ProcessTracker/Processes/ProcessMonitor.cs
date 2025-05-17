@@ -171,26 +171,37 @@ public class ProcessMonitor : IDisposable
          var mainProcessRunning = IsProcessRunning(pair.MainProcessId);
          var childProcessRunning = IsProcessRunning(pair.ChildProcessId);
 
-         if (!mainProcessRunning)
+         if (!mainProcessRunning && childProcessRunning)
          {
-            if (childProcessRunning)
+            try
             {
-               try
-               {
-                  _logger.Warning($"Main process {pair.MainProcessId} terminated, child {pair.ChildProcessId} still running");
-                  ProcessPairTerminated?.Invoke(this, pair);
-               }
-               catch { }
-
-               await TerminateProcessAsync(pair.ChildProcessId);
+               _logger.Warning($"Main process {pair.MainProcessId} terminated, child {pair.ChildProcessId} still running");
+               ProcessPairTerminated?.Invoke(this, pair);
             }
+            catch { }
 
+            await TerminateProcessAsync(pair.ChildProcessId);
+
+            childProcessRunning = IsProcessRunning(pair.ChildProcessId);
+            if (!childProcessRunning)
+            {
+               _logger.Info($"Pair {pair.MainProcessId} → {pair.ChildProcessId} fully terminated, removing from monitoring");
+               processesToRemove.Add(pair);
+            }
+            else
+            {
+               _logger.Warning($"Child process {pair.ChildProcessId} couldn't be terminated, keeping pair in monitoring");
+            }
+         }
+         else if (!mainProcessRunning && !childProcessRunning)
+         {
+            _logger.Info($"Both processes in pair {pair.MainProcessId} → {pair.ChildProcessId} terminated");
             processesToRemove.Add(pair);
          }
-         else if (!childProcessRunning)
+         else if (mainProcessRunning && !childProcessRunning)
          {
-            _logger.Info($"The child process {pair.ChildProcessId} has been terminated");
-            _logger.Info($"Remove the pair from monitoring {pair.MainProcessName}:{pair.ChildProcessId}");
+            _logger.Info($"Child process {pair.ChildProcessId} terminated while main process {pair.MainProcessId} is still running");
+            _logger.Info($"Removing pair from monitoring: {pair.MainProcessName}:{pair.MainProcessId} → {pair.ChildProcessName}:{pair.ChildProcessId}");
             processesToRemove.Add(pair);
          }
       }
@@ -254,27 +265,44 @@ public class ProcessMonitor : IDisposable
       }
    }
 
-   private async Task CloseGracefullyAsync(Process proc)
+   private async Task CloseGracefullyAsync(Process proc, int gracefulTimeoutMs = 5000)
    {
       if (proc.CloseMainWindow())
       {
-         await WaitForExitAsync(proc, 3000);
+         await WaitForExitAsync(proc, gracefulTimeoutMs);
          if (proc.HasExited)
          {
             _logger.Info($"Process {proc.Id} closed gracefully.");
             return;
          }
+
+         _logger.Warning($"Process {proc.Id} is not responding to close request. Forcing termination.");
       }
 
-      proc.Kill();
-      await WaitForExitAsync(proc, 500);
-      _logger.Info($"Process {proc.Id} killed.");
+      try
+      {
+         proc.Kill();
+         await WaitForExitAsync(proc, 1000);
+         _logger.Info($"Process {proc.Id} killed.");
+      }
+      catch (Exception ex)
+      {
+         _logger.Error($"Failed to kill process {proc.Id}: {ex.Message}");
+      }
    }
 
    private async Task WaitForExitAsync(Process process, int timeout)
    {
-      var cts = new CancellationTokenSource(timeout);
-      await process.WaitForExitAsync(cts.Token);
+      using var cts = new CancellationTokenSource(timeout);
+
+      try
+      {
+         await process.WaitForExitAsync(cts.Token);
+      }
+      catch (OperationCanceledException)
+      {
+
+      }
    }
 
    public void Dispose()
