@@ -107,7 +107,7 @@ public class ProcessSnapshotCommand : Command<ProcessSnapshotCommandSettings>
          if (!settings.QuietMode)
             AnsiConsole.MarkupLine($"[yellow]Invalid or corrupted snapshot data for '{settings.ProcessName}'[/]");
 
-         _configManager.DeleteConfiguration(fileName);
+         _configManager.RemoveConfigurationFile(fileName);
          return 1;
       }
 
@@ -149,7 +149,7 @@ public class ProcessSnapshotCommand : Command<ProcessSnapshotCommandSettings>
          }
       }
 
-      var deleted = _configManager.DeleteConfiguration(fileName);
+      var deleted = _configManager.RemoveConfigurationFile(fileName);
 
       if (!settings.QuietMode && deleted)
       {

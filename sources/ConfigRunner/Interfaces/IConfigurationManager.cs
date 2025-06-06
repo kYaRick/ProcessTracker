@@ -39,13 +39,13 @@ public interface IConfigurationManager
    /// </summary>
    /// <param name="fileName">Name of the configuration file</param>
    /// <returns>True if deletion was successful</returns>
-   bool DeleteConfiguration(string fileName);
+   bool RemoveConfigurationFile(string fileName);
 
    /// <summary>
    /// Clears all configurations
    /// </summary>
    /// <returns>True if clearing was successful</returns>
-   bool ClearAllConfigurations();
+   bool RemoveAllConfigurationFiles();
 
    /// <summary>
    /// Sets a default configuration if one doesn't exist
@@ -60,5 +60,5 @@ public interface IConfigurationManager
    /// Gets all configuration files
    /// </summary>
    /// <returns>List of configuration files</returns>
-   IEnumerable<string> GetAllConfigurationFiles();
+   IEnumerable<string?> GetAllConfigurationFiles();
 }

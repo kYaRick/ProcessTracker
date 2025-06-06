@@ -9,13 +9,15 @@ namespace ProcessTracker.Processes;
 /// </summary>
 public class ProcessMonitor : IDisposable
 {
-   private readonly ConcurrentBag<ProcessPair> _monitoredProcesses = new();
-   private readonly CancellationTokenSource _cts = new();
-   private Task? _monitoringTask;
+   private readonly ConcurrentBag<ProcessPair> _monitoredProcesses;
+   private readonly CancellationTokenSource _cts;
+   private readonly Task? _monitoringTask;
    private readonly TimeSpan _checkInterval;
-   private readonly IProcessTrackerLogger _logger;
+
    private volatile bool _isMonitoring;
-   private bool _isDisposed;
+   private volatile bool _isDisposed;
+
+   private readonly IProcessTrackerLogger _logger;
 
    /// <summary>
    /// Gets whether the monitor is actively running
@@ -27,6 +29,13 @@ public class ProcessMonitor : IDisposable
    /// Occurs when a parent process has terminated and its child process should be terminated
    /// </summary>
    public event EventHandler<ProcessPair>? ProcessPairTerminated;
+
+   /// <summary>
+   /// Gets all currently monitored process pairs
+   /// </summary>
+   /// <returns>List of monitored process pairs</returns>
+   public IReadOnlyList<ProcessPair> GetMonitoredProcesses() =>
+      _monitoredProcesses.ToList();
 
    /// <summary>
    /// Creates a new process monitor with the default check interval
@@ -44,15 +53,13 @@ public class ProcessMonitor : IDisposable
    /// <param name="checkInterval">How frequently to check if processes are still running</param>
    public ProcessMonitor(TimeSpan checkInterval, IProcessTrackerLogger logger)
    {
+      _monitoredProcesses = new();
+      _cts = new();
+
       _checkInterval = checkInterval;
       _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-      _logger.Info("Process monitor created");
-      StartMonitoringTask();
-   }
-
-   private void StartMonitoringTask()
-   {
       _isMonitoring = true;
+
       _monitoringTask = Task.Run(async () =>
       {
          try
@@ -75,6 +82,8 @@ public class ProcessMonitor : IDisposable
             _isMonitoring = false;
          }
       }, _cts.Token);
+
+      _logger.Info("Process monitor was created");
    }
 
    /// <summary>
@@ -87,10 +96,7 @@ public class ProcessMonitor : IDisposable
       if (pair is null || pair.MainProcessId <= 0 || pair.ChildProcessId <= 0)
          return false;
 
-      if (!TryGetProcess(pair.MainProcessId, out var mainProcess))
-         return false;
-
-      if (!TryGetProcess(pair.ChildProcessId, out var childProcess))
+      if (!TryGetProcess(pair.MainProcessId, out var mainProcess) || !TryGetProcess(pair.ChildProcessId, out var childProcess))
          return false;
 
       if (GetMonitoredProcesses().Any(p => p.MainProcessId == pair.MainProcessId && p.ChildProcessId == pair.ChildProcessId))
@@ -99,19 +105,20 @@ public class ProcessMonitor : IDisposable
       if (pair.Time == default)
          pair.Time = DateTime.UtcNow;
 
-      _monitoredProcesses.Add(pair);
-      _logger.Info($"Started monitoring: {pair.MainProcessId} -> {pair.ChildProcessId}");
-
       try
       {
          if (mainProcess is { })
          {
+            _monitoredProcesses.Add(pair);
+            _logger.Info($"Pair was added to monitoring - {pair.MainProcessId} <=> {pair.ChildProcessId}");
+
             mainProcess.EnableRaisingEvents = true;
             mainProcess.Exited += (sender, e) => _ = CheckProcessesAsync();
          }
       }
       catch
       {
+         _logger.Error($"Pair wasn't added to monitoring - {pair.MainProcessId} <=> {pair.ChildProcessId}");
       }
 
       return true;
@@ -150,13 +157,6 @@ public class ProcessMonitor : IDisposable
          return removed;
       }
    }
-
-   /// <summary>
-   /// Gets all currently monitored process pairs
-   /// </summary>
-   /// <returns>List of monitored process pairs</returns>
-   public IReadOnlyList<ProcessPair> GetMonitoredProcesses() =>
-      _monitoredProcesses.ToList();
 
    private async Task CheckProcessesAsync()
    {
@@ -299,7 +299,7 @@ public class ProcessMonitor : IDisposable
       {
          await process.WaitForExitAsync(cts.Token);
       }
-      catch (OperationCanceledException)
+      catch
       {
 
       }

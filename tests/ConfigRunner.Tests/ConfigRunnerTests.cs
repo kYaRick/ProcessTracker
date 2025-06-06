@@ -166,7 +166,7 @@ public class ConfigurationManagerTests
       manager.SaveConfiguration(testData, _fileName);
       manager.SaveConfiguration(testData, testFileName);
 
-      var result = manager.ClearAllConfigurations();
+      var result = manager.RemoveAllConfigurationFiles();
 
       // Assert
       Assert.True(result);
@@ -213,9 +213,37 @@ public class ConfigurationManagerTests
       }
    }
 
+   [Theory]
+   [InlineData(ConfigurationType.Temp)]
+   [InlineData(ConfigurationType.Settings)]
+   [InlineData(ConfigurationType.Local)]
+   public void RemoveFullConfiguration_ShouldRemoveDirectory(ConfigurationType type)
+   {
+      var manager = new ConfigurationManager(type, _applicationName);
+      var expectedPath = manager.ConfigurationDirectory;
+      
+      Assert.True(Directory.Exists(expectedPath));
+
+      var countOfFile = new Random().Next(20);
+
+      for (var i = 0; i < countOfFile; i++)
+      {
+         var filePath = Path.Combine(expectedPath, $"TestFie{i}.json");
+         manager.SaveConfiguration($"{i}", filePath);  
+      }
+      
+      Assert.Equal(countOfFile, manager.GetAllConfigurationFiles().Count());
+      
+      manager.RemoveAllConfigurationDirectories();
+      
+      Assert.False(Directory.Exists(expectedPath));
+   }
+   
+   
+   
    private void CleanupTestDirectory(ConfigurationManager manager)
    {
-      manager.ClearAllConfigurations();
+      manager.RemoveAllConfigurationFiles();
       var directory = manager.ConfigurationDirectory;
 
       try

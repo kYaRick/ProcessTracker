@@ -22,17 +22,20 @@ public class SingleInstanceManager : IDisposable
    /// <summary>
    /// Creates a new single instance manager with the default mutex name
    /// </summary>
+   /// <remarks>
+   /// - <see cref="DEFAULT_MUTEX_NAME">default mutex name</see>
+   /// </remarks>
    public SingleInstanceManager(IProcessTrackerLogger logger) : this(DEFAULT_MUTEX_NAME, logger) { }
 
    /// <summary>
    /// Creates a new single instance manager with a custom mutex name
    /// </summary>
-   /// <param name="mutexName">Name of the mutex to use for single instance detection</param>
-   public SingleInstanceManager(string mutexName, IProcessTrackerLogger logger)
+   /// <param name="customMutexName">Name of the mutex to use for single instance detection</param>
+   public SingleInstanceManager(string customMutexName, IProcessTrackerLogger logger)
    {
       _logger = logger;
 
-      _mutex = new(true, mutexName, out var createdNew);
+      _mutex = new(true, customMutexName, out var createdNew);
       _mutexWasCreatedByUs = createdNew;
 
       IsAlreadyRunning = !createdNew;
@@ -43,7 +46,7 @@ public class SingleInstanceManager : IDisposable
    /// </summary>
    public void Release()
    {
-      if (!IsAlreadyRunning && !_isDisposed)
+      if (!_isDisposed && _mutexWasCreatedByUs && !IsAlreadyRunning)
       {
          try
          {
@@ -53,7 +56,7 @@ public class SingleInstanceManager : IDisposable
          }
          catch (Exception ex)
          {
-            _logger.Error($"Error releasing mutex: {ex.Message}");
+            _logger.Error($"Releasing mutex issue.\nDetails:\n{ex.Message}");
          }
       }
    }
@@ -89,27 +92,21 @@ public class SingleInstanceManager : IDisposable
       }
       catch (Exception ex)
       {
-         _logger.Error($"Error acquiring mutex: {ex.Message}");
+         _logger.Error($"Acquiring mutex issue.\nDetails:\n{ex.Message}");
          return false;
       }
    }
 
    protected virtual void Dispose(bool disposing)
    {
-      if (!_isDisposed)
+      if (!_isDisposed && disposing)
       {
-         if (disposing)
+         try
          {
-            try
-            {
-               if (_mutexWasCreatedByUs)
-               {
-                  _mutex.ReleaseMutex();
-               }
-               _mutex.Dispose();
-            }
-            catch { }
+            _mutex.ReleaseMutex();
+            _mutex.Dispose();
          }
+         catch { }
 
          _isDisposed = true;
       }

@@ -2,7 +2,7 @@
 
 	<PropertyGroup>
 		<OutputType>Library</OutputType>
-		<TargetFramework>net9.0</TargetFramework>
+		<TargetFramework>net10.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<BaseOutputPath>$(SolutionDir)bin\projects\$(AssemblyName)</BaseOutputPath>
@@ -10,6 +10,7 @@
 		<SatelliteResourceLanguages>en</SatelliteResourceLanguages>
 		<PackageIcon>process-tracker-core.png</PackageIcon>
 		<Version>$(TrackerVersion)</Version>
+		<LangVersion>default</LangVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
