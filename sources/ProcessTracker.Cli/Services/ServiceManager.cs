@@ -11,9 +11,10 @@ namespace ProcessTracker.Cli.Services;
 public static class ServiceManager
 {
    private static ProcessMonitorService? _serviceInstance;
-   private static bool _wasInstanceRunning = false;
    private static readonly Lock _lock = new();
    private static ProcessRepository? _repository;
+   private static IProcessTrackerSettings _settings = new Settings();
+   public static IProcessTrackerSettings? Settings => _settings;
 
    /// <summary>
    /// Gets or creates the singleton ProcessMonitorService instance
@@ -42,8 +43,14 @@ public static class ServiceManager
          IProcessTrackerLogger logger = customLogger ??
             (quietMode ? new QuiteLogger() : new CliLogger());
 
-         var monitor = new ProcessMonitor(TimeSpan.FromSeconds(4), logger);
-         var singleInstance = new SingleInstanceManager(logger);
+         if (_settings is Settings settings)
+         {
+            settings.ReadSettings(out _settings);
+            settings.SaveSettings(settings);
+         }
+
+         var monitor = new ProcessMonitor(_settings, logger);
+         var singleInstance = new SingleInstanceManager(_settings, logger);
          _repository = new();
 
          _serviceInstance = new ProcessMonitorService(

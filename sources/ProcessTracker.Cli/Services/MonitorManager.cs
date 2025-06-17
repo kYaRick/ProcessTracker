@@ -12,13 +12,27 @@ public static class MonitorManager
    private static bool _isInitialized;
    private static IProcessTrackerLogger? _logger;
 
+   /// <summary>
+   /// Gets the interval, in seconds, at which the system refreshes its state.
+   /// </summary>
+   /// <remarks>This property is read-only and can only be set internally. It is used to control the frequency
+   /// of periodic updates.</remarks>
    public static int RefreshInterval { get; private set; }
+
+   /// <summary>
+   /// Gets the timeout duration, in seconds, before the application automatically exits.
+   /// </summary>
+   /// <remarks>This property is read-only and can only be set internally. It is used to control the frequency
+   /// of periodic updates.</remarks>
    public static int AutoExitTimeout { get; private set; }
 
    /// <summary>
    /// Initializes the monitor manager with a logger
    /// </summary>
-   public static void Initialize(IProcessTrackerLogger logger, int refreshInterval = 3, int autoExitTimeout = 6)
+   /// <param name="logger">Logger to use for output messages</param>
+   /// <param name="refreshInterval">Interval in seconds for refreshing the monitored processes</param>
+   /// <param name="autoExitTimeout">Timeout in seconds for automatic exit</param>
+   public static void Initialize(IProcessTrackerLogger logger, int refreshInterval, int autoExitTimeout)
    {
       RefreshInterval = refreshInterval;
       AutoExitTimeout = autoExitTimeout;
@@ -44,6 +58,8 @@ public static class MonitorManager
    /// <summary>
    /// Adds a process pair to be monitored and ensures the background monitor is running
    /// </summary>
+   /// <param name="mainProcessId">ID of the main process</param>
+   /// <param name="childProcessId">Child process ID to monitor</param>
    public static bool AddProcessPair(int mainProcessId, int childProcessId) =>
       ServiceManager.WithTemporarilySuspendedService(service =>
             service.AddProcessPair(mainProcessId, childProcessId),
@@ -53,6 +69,8 @@ public static class MonitorManager
    /// <summary>
    /// Removes a process pair from monitoring
    /// </summary>
+   /// <param name="mainProcessId">ID of the main process</param>
+   /// <param name="childProcessId">Child process ID to monitor</param>
    public static bool RemoveProcessPair(int mainProcessId, int childProcessId) => ServiceManager.WithTemporarilySuspendedService(service =>
          service.RemoveProcessPair(mainProcessId, childProcessId),
       quietMode: true,

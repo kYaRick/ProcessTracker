@@ -13,6 +13,7 @@ public class ProcessMonitor : IDisposable
    private readonly CancellationTokenSource _cts;
    private readonly Task? _monitoringTask;
    private readonly TimeSpan _checkInterval;
+   private readonly IProcessTrackerSettings _settings;
 
    private volatile bool _isMonitoring;
    private volatile bool _isDisposed;
@@ -38,25 +39,16 @@ public class ProcessMonitor : IDisposable
       _monitoredProcesses.ToList();
 
    /// <summary>
-   /// Creates a new process monitor with the default check interval
-   /// </summary>
-   /// <remarks>
-   /// Default check interval is 5 seconds.
-   /// This can be changed by using the constructor that takes a check interval parameter.
-   /// </remarks>
-   public ProcessMonitor(IProcessTrackerLogger logger)
-       : this(TimeSpan.FromSeconds(5), logger) { }
-
-   /// <summary>
    /// Creates a new process monitor with a custom check interval
    /// </summary>
    /// <param name="checkInterval">How frequently to check if processes are still running</param>
-   public ProcessMonitor(TimeSpan checkInterval, IProcessTrackerLogger logger)
+   public ProcessMonitor(IProcessTrackerSettings settings, IProcessTrackerLogger logger)
    {
+      _settings = settings;
       _monitoredProcesses = new();
       _cts = new();
 
-      _checkInterval = checkInterval;
+      _checkInterval = settings!.CheckTimeout;
       _logger = logger ?? throw new ArgumentNullException(nameof(logger));
       _isMonitoring = true;
 
@@ -72,6 +64,7 @@ public class ProcessMonitor : IDisposable
          }
          catch (OperationCanceledException)
          {
+            _logger.Info($"Monitoring operation was canceled.");
          }
          catch (Exception ex)
          {
@@ -265,11 +258,11 @@ public class ProcessMonitor : IDisposable
       }
    }
 
-   private async Task CloseGracefullyAsync(Process proc, int gracefulTimeoutMs = 5000)
+   private async Task CloseGracefullyAsync(Process proc)
    {
       if (proc.CloseMainWindow())
       {
-         await WaitForExitAsync(proc, gracefulTimeoutMs);
+         await WaitForExitAsync(proc, _settings.ProcessGracefulTimeout);
          if (proc.HasExited)
          {
             _logger.Info($"Process {proc.Id} closed gracefully.");
@@ -282,7 +275,7 @@ public class ProcessMonitor : IDisposable
       try
       {
          proc.Kill();
-         await WaitForExitAsync(proc, 1000);
+         await WaitForExitAsync(proc, _settings.ProcessWaitTimeout);
          _logger.Info($"Process {proc.Id} killed.");
       }
       catch (Exception ex)
@@ -291,7 +284,7 @@ public class ProcessMonitor : IDisposable
       }
    }
 
-   private async Task WaitForExitAsync(Process process, int timeout)
+   private async Task WaitForExitAsync(Process process, TimeSpan timeout)
    {
       using var cts = new CancellationTokenSource(timeout);
 
@@ -299,10 +292,7 @@ public class ProcessMonitor : IDisposable
       {
          await process.WaitForExitAsync(cts.Token);
       }
-      catch
-      {
-
-      }
+      catch { }
    }
 
    public void Dispose()
@@ -315,7 +305,7 @@ public class ProcessMonitor : IDisposable
          try
          {
             if (_monitoringTask is { } && !_monitoringTask.IsCompleted)
-               Task.WaitAny([_monitoringTask], 1000);
+               Task.WaitAny([_monitoringTask], _settings.ProcessWaitTimeout);
          }
          finally
          {

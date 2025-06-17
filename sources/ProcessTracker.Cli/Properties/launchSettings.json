@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "ProcessTracker.Cli": {
+      "commandName": "Project",
+      "commandLineArgs": "test"
+    }
+  }
+}

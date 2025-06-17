@@ -27,11 +27,23 @@ namespace ProcessTracker.Services
       /// <param name="logger">Optional logger for output messages</param>
       /// <param name="refreshInterval">Refresh interval in seconds (default: 3)</param>
       /// <param name="autoExitTimeout">Auto-exit timeout in intervals (0 to disable, default: 6)</param>
-      public BackgroundRunner(IProcessTrackerLogger? logger = null, int refreshInterval = 3, int autoExitTimeout = 6)
+      public BackgroundRunner(IProcessTrackerLogger? logger = null, int? refreshInterval = null, int? autoExitTimeout = null)
       {
          _logger = logger ?? new ProcessLogs();
-         _refreshInterval = Math.Max(1, refreshInterval);
-         _autoExitTimeout = Math.Max(0, autoExitTimeout);
+
+         if (ServiceManager.Settings is null)
+         {
+            _logger.Error("ServiceManager settings are not initialized. Using default values.");
+            return;
+         }
+
+         if (refreshInterval is not null)
+            ServiceManager.Settings.CheckTimeout = TimeSpan.FromSeconds(refreshInterval.Value);
+
+         if (autoExitTimeout is not null)
+            ServiceManager.Settings.CheckTimeout = TimeSpan.FromSeconds(autoExitTimeout.Value);
+
+         ServiceManager.Settings.SaveSettings(ServiceManager.Settings);
 
          MonitorManager.Initialize(_logger, _refreshInterval, _autoExitTimeout);
       }

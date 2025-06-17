@@ -18,7 +18,7 @@ public static class ConfigurationConstants
    /// <summary>
    /// Root directory name for all configuration files
    /// </summary>
-   public const string APPLICATION_ROOT_DIR = "Process Tracker";
+   public const string APPLICATION_ROOT_DIR = nameof(ConfigRunner);
    /// <summary>
    /// Default JSON file extension
    /// </summary>

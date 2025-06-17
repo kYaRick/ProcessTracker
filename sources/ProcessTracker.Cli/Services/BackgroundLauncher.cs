@@ -15,7 +15,7 @@ public static class BackgroundLauncher
    private static ConfigurationManager _configManager = new(ConfigurationType.Temp, nameof(ProcessTracker));
    private static Process? _backgroundProcess;
    private static readonly Lock _lockObj = new();
-   private static readonly string _pidFilePath = Path.Combine(_configManager.ConfigurationDirectory, "background.log");
+   private static readonly string _pidFilePath = Path.Combine(_configManager.ConfigurationPath, "background.log");
 
    /// <summary>
    /// Launches the application in background mode for monitoring

@@ -7,12 +7,13 @@ namespace ProcessTracker.Processes;
 /// </summary>
 public class SingleInstanceManager : IDisposable
 {
-   private const string DEFAULT_MUTEX_NAME = @"Global\ProcessTrackerSingleInstanceMutex";
+   public const string DEFAULT_MUTEX_NAME = @"Global\ProcessTrackerSingleInstanceMutex";
    private readonly Mutex _mutex;
    private bool _mutexWasCreatedByUs;
    private bool _isDisposed;
 
    private readonly IProcessTrackerLogger _logger;
+   private readonly IProcessTrackerSettings _settings;
 
    /// <summary>
    /// Gets whether another instance is already running
@@ -25,14 +26,15 @@ public class SingleInstanceManager : IDisposable
    /// <remarks>
    /// - <see cref="DEFAULT_MUTEX_NAME">default mutex name</see>
    /// </remarks>
-   public SingleInstanceManager(IProcessTrackerLogger logger) : this(DEFAULT_MUTEX_NAME, logger) { }
+   public SingleInstanceManager(IProcessTrackerSettings settings, IProcessTrackerLogger logger) : this(DEFAULT_MUTEX_NAME, settings, logger) { }
 
    /// <summary>
    /// Creates a new single instance manager with a custom mutex name
    /// </summary>
    /// <param name="customMutexName">Name of the mutex to use for single instance detection</param>
-   public SingleInstanceManager(string customMutexName, IProcessTrackerLogger logger)
+   public SingleInstanceManager(string customMutexName, IProcessTrackerSettings settings, IProcessTrackerLogger logger)
    {
+      _settings = settings;
       _logger = logger;
 
       _mutex = new(true, customMutexName, out var createdNew);
@@ -75,7 +77,7 @@ public class SingleInstanceManager : IDisposable
 
       try
       {
-         var acquired = _mutex.WaitOne(0);
+         var acquired = _mutex.WaitOne(_settings.MutexAcquireTimeout);
 
          if (acquired)
          {

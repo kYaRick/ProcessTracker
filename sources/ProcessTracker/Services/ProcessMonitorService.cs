@@ -13,31 +13,15 @@ public class ProcessMonitorService : IDisposable
    private readonly ProcessMonitor _monitor;
    private readonly ProcessRepository _repository;
    private readonly IProcessTrackerLogger _logger;
+   private readonly IProcessTrackerSettings _settings = new Settings();
    private bool _isDisposed;
+
+   public IProcessTrackerSettings Settings => _settings;
 
    /// <summary>
    /// Gets whether another instance of the service is already running
    /// </summary>
    public bool IsAlreadyRunning => _singleInstance.IsAlreadyRunning;
-
-   /// <summary>
-   /// Creates a new process monitor service with default dependencies
-   /// </summary>
-   public ProcessMonitorService() : this(new ProcessLogs()) { }
-
-   /// <summary>
-   /// Creates a new process monitor service with logger
-   /// </summary>
-   public ProcessMonitorService(IProcessTrackerLogger logger)
-   {
-      _logger = logger;
-      _singleInstance = new(_logger);
-      _monitor = new(_logger);
-      _repository = new();
-
-      if (!IsAlreadyRunning)
-         LoadStoredProcesses();
-   }
 
    /// <summary>
    /// Creates a new process monitor service with custom dependencies
@@ -48,14 +32,19 @@ public class ProcessMonitorService : IDisposable
       SingleInstanceManager singleInstance,
       IProcessTrackerLogger logger)
    {
+      _logger = logger;
+
+      if (_settings is Settings settings)
+         settings.ReadSettings(out _settings);
+
       _monitor = monitor;
       _repository = repository;
       _singleInstance = singleInstance;
-      _logger = logger;
 
       _monitor.ProcessPairTerminated += OnProcessPairTerminated;
 
-      LoadStoredProcesses();
+      if (!IsAlreadyRunning)
+         LoadStoredProcesses();
    }
 
    /// <summary>
@@ -200,9 +189,7 @@ public class ProcessMonitorService : IDisposable
       finally
       {
          if (needToReacquireLock)
-         {
             _singleInstance.TryAcquire();
-         }
       }
    }
 
@@ -297,6 +284,13 @@ public class ProcessMonitorService : IDisposable
    {
       if (!_isDisposed)
       {
+
+         if (!_repository.HasAny())
+         {
+            _logger.Info("No process pairs left, clearing repository");
+            _repository.Clear();
+         }
+
          _monitor.ProcessPairTerminated -= OnProcessPairTerminated;
          _monitor.Dispose();
          _singleInstance.Dispose();

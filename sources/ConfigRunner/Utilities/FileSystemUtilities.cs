@@ -43,8 +43,9 @@ internal static class FileSystemUtilities
    /// Ensures a file exists with JSON content, creating it if necessary
    /// </summary>
    /// <param name="filePath">Path to the file</param>
+   /// <param name="createIfNotExists">Whether to create the file if it does not exist</param>
    /// <exception cref="Exception">Failed to create directory or read file</exception>
-   internal static void EnsureJsonFileExists(string filePath)
+   internal static void EnsureJsonFileExists(string filePath, bool createIfNotExists = true)
    {
       try
       {
@@ -53,7 +54,7 @@ internal static class FileSystemUtilities
          if (!string.IsNullOrWhiteSpace(directory))
             EnsureDirectoryExists(directory);
 
-         if (!File.Exists(filePath))
+         if (!File.Exists(filePath) && createIfNotExists)
             File.WriteAllText(filePath, ConfigurationConstants.EMPTY_CONFIG);
       }
       catch

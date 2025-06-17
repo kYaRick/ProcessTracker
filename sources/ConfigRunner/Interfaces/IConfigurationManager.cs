@@ -8,7 +8,7 @@ public interface IConfigurationManager
    /// <summary>
    /// Root directory where configurations are stored
    /// </summary>
-   string ConfigurationDirectory { get; }
+   string ConfigurationPath { get; }
 
    /// <summary>
    /// Reads a configuration from a file

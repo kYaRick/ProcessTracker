@@ -9,232 +9,240 @@ namespace ConfigRunner;
 /// </summary>
 public class ConfigurationManager : IConfigurationManager
 {
-    /// <summary>
-    /// The root directory where configurations are stored
-    /// </summary>
-    public string ConfigurationDirectory { get; }
+   /// <summary>
+   /// The root directory where configurations are stored
+   /// </summary>
+   public string ConfigurationPath { get; private set; }
 
-    /// <summary>
-    /// Creates a new configuration manager
-    /// </summary>
-    /// <param name="configurationType">Type of configuration storage</param>
-    /// <exception cref="ArgumentException">Thrown when parameters are invalid</exception>
-    /// <exception cref="Exception">Failed to create directory</exception>
-    public ConfigurationManager(ConfigurationType configurationType)
-    {
-        var rootPath = FileSystemUtilities.GetRootPath(configurationType);
 
-        ConfigurationDirectory = Path.Combine(rootPath, ConfigurationConstants.APPLICATION_ROOT_DIR);
+   public string? ConfigurationDirectory { get; private set; }
+   public string? ApplicationName { get; private set; }
 
-        FileSystemUtilities.EnsureDirectoryExists(ConfigurationDirectory);
-    }
+   /// <summary>
+   /// Creates a new configuration manager
+   /// </summary>
+   /// <param name="configurationType">Type of configuration storage</param>
+   /// <exception cref="ArgumentException">Thrown when parameters are invalid</exception>
+   /// <exception cref="Exception">Failed to create directory</exception>
+   public ConfigurationManager(ConfigurationType configurationType)
+   {
+      ConfigurationDirectory = FileSystemUtilities.GetRootPath(configurationType);
+      ApplicationName = ConfigurationConstants.APPLICATION_ROOT_DIR;
 
-    /// <inheritdoc cref="ConfigurationManager(ConfigurationType)"/>
-    /// <param name="applicationName">Name of the application</param>
-    public ConfigurationManager(ConfigurationType configurationType, string applicationName)
-    {
-        if (string.IsNullOrWhiteSpace(applicationName))
-            throw new ArgumentException("Application name cannot be empty.", nameof(applicationName));
+      ConfigurationPath = Path.Combine(ConfigurationDirectory, ApplicationName);
 
-        var rootPath = FileSystemUtilities.GetRootPath(configurationType);
+      FileSystemUtilities.EnsureDirectoryExists(ConfigurationPath);
+   }
 
-        ConfigurationDirectory = Path.Combine(rootPath, ConfigurationConstants.APPLICATION_ROOT_DIR, applicationName);
+   /// <inheritdoc cref="ConfigurationManager(ConfigurationType)"/>
+   /// <param name="applicationName">Name of the application</param>
+   public ConfigurationManager(ConfigurationType configurationType, string? applicationName)
+   {
+      if (applicationName is null)
+         throw new ArgumentException("Application name cannot be null.", nameof(applicationName));
 
-        FileSystemUtilities.EnsureDirectoryExists(ConfigurationDirectory);
-    }
+      ConfigurationDirectory = FileSystemUtilities.GetRootPath(configurationType);
+      ApplicationName = applicationName.Trim();
 
-    /// <summary>
-    /// Creates a new configuration manager with a custom configuration path
-    /// </summary>
-    /// <param name="configurationPath">Custom root path for configuration files</param>
-    /// <param name="applicationName">Name of the application</param>
-    /// <exception cref="ArgumentException">Thrown when parameters are invalid</exception>
-    /// <exception cref="Exception">Failed to create directory</exception>
-    public ConfigurationManager(string configurationPath, string applicationName)
-    {
-        if (string.IsNullOrWhiteSpace(applicationName))
-            throw new ArgumentException("Application name cannot be empty.", nameof(applicationName));
+      ConfigurationPath = Path.Combine(ConfigurationDirectory, ApplicationName);
 
-        if (string.IsNullOrWhiteSpace(configurationPath))
-            throw new ArgumentException("ConfigurationRunner path cannot be empty.", nameof(configurationPath));
+      FileSystemUtilities.EnsureDirectoryExists(ConfigurationPath);
+   }
 
-        if (!Directory.Exists(configurationPath))
-            throw new ArgumentException($"Directory does not exist: {configurationPath}", nameof(configurationPath));
+   /// <summary>
+   /// Creates a new configuration manager with a custom configuration path
+   /// </summary>
+   /// <param name="configurationPath">Custom root path for configuration files</param>
+   /// <param name="applicationName">Name of the application</param>
+   /// <exception cref="ArgumentException">Thrown when parameters are invalid</exception>
+   /// <exception cref="Exception">Failed to create directory</exception>
+   public ConfigurationManager(string configurationPath, string applicationName)
+   {
+      if (string.IsNullOrWhiteSpace(applicationName))
+         throw new ArgumentException("Application name cannot be empty.", nameof(applicationName));
 
-        ConfigurationDirectory = Path.Combine(configurationPath, applicationName);
+      if (string.IsNullOrWhiteSpace(configurationPath))
+         throw new ArgumentException("ConfigurationRunner path cannot be empty.", nameof(configurationPath));
 
-        FileSystemUtilities.EnsureDirectoryExists(ConfigurationDirectory);
-    }
+      if (!Directory.Exists(configurationPath))
+         throw new ArgumentException($"Directory does not exist: {configurationPath}", nameof(configurationPath));
 
-    /// <inheritdoc/>
-    public T? ReadConfiguration<T>(string fileName) where T : class, new()
-    {
-        try
-        {
-            fileName = FileSystemUtilities.EnsureJsonExtension(fileName);
-            var filePath = Path.Combine(ConfigurationDirectory, fileName);
+      ConfigurationDirectory = configurationPath.Trim();
+      ApplicationName = applicationName.Trim();
 
-            FileSystemUtilities.EnsureJsonFileExists(filePath);
+      ConfigurationPath = Path.Combine(ConfigurationDirectory, ApplicationName);
 
-            var json = File.ReadAllText(filePath);
-            return JsonSerializerUtilities.Deserialize<T>(json);
-        }
-        catch
-        {
-            return new T();
-        }
-    }
+      FileSystemUtilities.EnsureDirectoryExists(ConfigurationPath);
+   }
 
-    /// <inheritdoc/>
-    public bool SaveConfiguration<T>(T configuration, string fileName) where T : class
-    {
-        bool isSaved;
+   public T? ReadConfiguration<T>(string fileName) where T : class, new()
+   {
+      try
+      {
+         fileName = FileSystemUtilities.EnsureJsonExtension(fileName);
+         var filePath = Path.Combine(ConfigurationPath, fileName);
 
-        try
-        {
-            if (configuration is null)
-                throw new ArgumentNullException(nameof(configuration));
+         FileSystemUtilities.EnsureJsonFileExists(filePath, false);
 
-            fileName = FileSystemUtilities.EnsureJsonExtension(fileName);
-            var filePath = Path.Combine(ConfigurationDirectory, fileName);
+         if (!File.Exists(filePath))
+            return null;
 
-            var directory = Path.GetDirectoryName(filePath);
-            if (!string.IsNullOrWhiteSpace(directory))
-                FileSystemUtilities.EnsureDirectoryExists(directory);
+         var json = File.ReadAllText(filePath);
+         return JsonSerializerUtilities.Deserialize<T>(json);
+      }
+      catch
+      {
+         return new T();
+      }
+   }
 
-            var json = JsonSerializerUtilities.Serialize(configuration);
-            File.WriteAllText(filePath, json);
+   public bool SaveConfiguration<T>(T configuration, string fileName) where T : class
+   {
+      bool isSaved;
 
-            isSaved = true;
-        }
-        catch
-        {
-            isSaved = false;
-        }
+      try
+      {
+         if (configuration is null)
+            throw new ArgumentNullException(nameof(configuration));
 
-        return isSaved;
-    }
+         fileName = FileSystemUtilities.EnsureJsonExtension(fileName);
+         var filePath = Path.Combine(ConfigurationPath, fileName);
 
-    /// <inheritdoc/>
-    public bool ConfigurationExists(string fileName)
-    {
-        fileName = FileSystemUtilities.EnsureJsonExtension(fileName);
-        var filePath = Path.Combine(ConfigurationDirectory, fileName);
+         var directory = Path.GetDirectoryName(filePath);
+         if (!string.IsNullOrWhiteSpace(directory))
+            FileSystemUtilities.EnsureDirectoryExists(directory);
 
-        return File.Exists(filePath);
-    }
+         var json = JsonSerializerUtilities.Serialize(configuration);
+         File.WriteAllText(filePath, json);
 
-    /// <inheritdoc/>
-    public bool RemoveConfigurationFile(string fileName)
-    {
-        bool isRemoved;
+         isSaved = true;
+      }
+      catch
+      {
+         isSaved = false;
+      }
 
-        try
-        {
-            fileName = FileSystemUtilities.EnsureJsonExtension(fileName);
-            var filePath = Path.Combine(ConfigurationDirectory, fileName);
+      return isSaved;
+   }
 
-            if (File.Exists(filePath))
-                File.Delete(filePath);
+   public bool ConfigurationExists(string fileName)
+   {
+      fileName = FileSystemUtilities.EnsureJsonExtension(fileName);
+      var filePath = Path.Combine(ConfigurationPath, fileName);
 
+      return File.Exists(filePath);
+   }
+
+   public bool RemoveConfigurationFile(string fileName)
+   {
+      bool isRemoved;
+
+      try
+      {
+         fileName = FileSystemUtilities.EnsureJsonExtension(fileName);
+         var filePath = Path.Combine(ConfigurationPath, fileName);
+
+         if (File.Exists(filePath))
+            File.Delete(filePath);
+
+         isRemoved = true;
+      }
+      catch
+      {
+         isRemoved = false;
+      }
+
+      return isRemoved;
+   }
+
+   public bool RemoveAllConfigurationFiles()
+   {
+      bool isRemoved;
+
+      try
+      {
+         if (Directory.Exists(ConfigurationPath))
+         {
+            var files = GetAllConfigurationFiles()
+                .Select(fileName => Path.Combine(ConfigurationPath, fileName ?? string.Empty));
+
+            foreach (var file in files)
+               RemoveConfigurationFile(file);
+         }
+
+         isRemoved = true;
+      }
+      catch
+      {
+         isRemoved = false;
+      }
+
+      return isRemoved;
+   }
+
+   /// <summary>
+   /// Removes the entire configuration directory, including all its subdirectories and files.
+   /// </summary>
+   /// <returns>
+   /// <see langword="true"/> if the directory was successfully removed or did not exist;
+   /// <see langword="false"/> if an error occurred during removal (e.g., directory is in use, insufficient permissions).
+   /// </returns>
+   public bool RemoveAllConfigurationDirectories()
+   {
+      bool isRemoved;
+
+      if (string.IsNullOrWhiteSpace(ApplicationName))
+         return false;
+
+      if (!Directory.Exists(ConfigurationPath))
+      {
+         isRemoved = false;
+      }
+      else
+      {
+         try
+         {
+            Directory.Delete(ConfigurationPath, true);
             isRemoved = true;
-        }
-        catch
-        {
+         }
+         catch
+         {
             isRemoved = false;
-        }
+         }
+      }
 
-        return isRemoved;
-    }
+      return isRemoved;
+   }
 
-    /// <inheritdoc/>
-    public bool RemoveAllConfigurationFiles()
-    {
-        bool isRemoved;
+   public bool SetDefaultConfiguration<T>(T defaultConfiguration, string fileName) where T : class
+   {
+      if (defaultConfiguration is null)
+         throw new ArgumentNullException(nameof(defaultConfiguration));
 
-        try
-        {
-            if (Directory.Exists(ConfigurationDirectory))
-            {
-                var files = GetAllConfigurationFiles()
-                    .Select(fileName => Path.Combine(ConfigurationDirectory, fileName ?? string.Empty));
+      fileName = FileSystemUtilities.EnsureJsonExtension(fileName);
 
-                foreach (var file in files)
-                    RemoveConfigurationFile(file);
-            }
+      if (ConfigurationExists(fileName))
+         return true;
 
-            isRemoved = true;
-        }
-        catch
-        {
-            isRemoved = false;
-        }
+      return SaveConfiguration(defaultConfiguration, fileName);
+   }
 
-        return isRemoved;
-    }
-    
-    /// <summary>
-    /// Removes the entire configuration directory, including all its subdirectories and files.
-    /// </summary>
-    /// <returns>
-    /// <see langword="true"/> if the directory was successfully removed or did not exist;
-    /// <see langword="false"/> if an error occurred during removal (e.g., directory is in use, insufficient permissions).
-    /// </returns>
-    public bool RemoveAllConfigurationDirectories()
-    {
-        bool isRemoved;
+   public IEnumerable<string?> GetAllConfigurationFiles()
+   {
+      IEnumerable<string?> defaultReturnValue = [null];
 
-        if (!Directory.Exists(ConfigurationDirectory))
-        {
-            isRemoved = false;
-        }
-        else
-        {
-            try
-            {
-                Directory.Delete(ConfigurationDirectory, true);
-                isRemoved = true;
-            }
-            catch
-            {
-                isRemoved = false;
-            }
-        }
-        
-        return isRemoved;
-    }
+      try
+      {
+         if (!Directory.Exists(ConfigurationPath))
+            return [null];
 
-    /// <inheritdoc/>
-    public bool SetDefaultConfiguration<T>(T defaultConfiguration, string fileName) where T : class
-    {
-        if (defaultConfiguration is null)
-            throw new ArgumentNullException(nameof(defaultConfiguration));
-
-        fileName = FileSystemUtilities.EnsureJsonExtension(fileName);
-
-        if (ConfigurationExists(fileName))
-            return true;
-
-        return SaveConfiguration(defaultConfiguration, fileName);
-    }
-
-    /// <inheritdoc/>
-    public IEnumerable<string?> GetAllConfigurationFiles()
-    {
-        IEnumerable<string?> defaultReturnValue = [null];
-        
-        try
-        {
-            if (!Directory.Exists(ConfigurationDirectory))
-                return [null];
-
-            return Directory.GetFiles(ConfigurationDirectory, $"*{ConfigurationConstants.CONFIG_EXTENSION}")
-                ?.Select(Path.GetFileName)
-                ?.Where(name => !string.IsNullOrEmpty(name)) ?? defaultReturnValue;
-        }
-        catch
-        {
-            return defaultReturnValue;
-        }
-    }
+         return Directory.GetFiles(ConfigurationPath, $"*{ConfigurationConstants.CONFIG_EXTENSION}")
+             ?.Select(Path.GetFileName)
+             ?.Where(name => !string.IsNullOrEmpty(name)) ?? defaultReturnValue;
+      }
+      catch
+      {
+         return defaultReturnValue;
+      }
+   }
 }

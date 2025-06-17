@@ -46,4 +46,10 @@ public class ProcessRepository
    /// <returns>True if at least one process pair exists, otherwise false</returns>
    public bool HasAny() =>
       LoadAll().Any();
+
+   /// <summary>
+   /// Clears all directories used for configuration storage.
+   /// </summary>
+   public void Clear() =>
+      _configManager.RemoveAllConfigurationDirectories();
 }
