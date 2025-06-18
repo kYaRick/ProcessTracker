@@ -1,9 +1,11 @@
 ﻿using ConfigRunner;
 using ConfigRunner.Constants;
+using ConfigRunner.Interfaces;
 using ProcessTracker.Models;
 
 
 namespace ProcessTracker.Processes;
+
 
 /// <summary>
 /// Manages persistence of process pairs using ConfigRunner for storage.
@@ -14,7 +16,23 @@ public class ProcessRepository
    /// <summary>
    /// The configuration manager used to persist process pairs
    /// </summary>
-   private ConfigurationManager _configManager = new(ConfigurationType.Temp, nameof(ProcessTracker));
+   private readonly IConfigurationManager _configManager;
+
+   public ProcessRepository() :
+      this(new ConfigurationManager(ConfigurationType.Temp, nameof(ProcessTracker)))
+   { }
+
+   /// <summary>
+   /// Initializes a new instance of the <see cref="ProcessRepository"/> class.
+   /// </summary>
+   /// <param name="configManager">The configuration manager to use for persistence.</param>
+   public ProcessRepository(IConfigurationManager configManager)
+   {
+      if (configManager is null)
+         throw new ArgumentNullException(nameof(configManager), "Configuration manager cannot be null");
+
+      _configManager = configManager;
+   }
 
    /// <summary>
    /// Gets or sets the file name used to store process tracking configuration

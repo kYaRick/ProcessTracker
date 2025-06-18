@@ -61,4 +61,10 @@ public interface IConfigurationManager
    /// </summary>
    /// <returns>List of configuration files</returns>
    IEnumerable<string?> GetAllConfigurationFiles();
+
+   /// <summary>
+   /// Removes all configuration directories, including subdirectories and files
+   /// </summary>
+   /// <returns></returns>
+   bool RemoveAllConfigurationDirectories();
 }
