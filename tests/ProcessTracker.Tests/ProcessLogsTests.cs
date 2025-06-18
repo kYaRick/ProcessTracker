@@ -1,6 +1,8 @@
 ﻿using ProcessTracker.Processes;
 using System.Diagnostics;
 
+namespace ProcessTracker.Tests.Processes;
+
 public class ProcessLogsTests : IDisposable
 {
    private readonly StringWriter _stringWriter;

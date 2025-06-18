@@ -21,7 +21,7 @@ public class ProcessRepositoryTests
    {
       // Arrange
       _mockConfigManager.Setup(m => m.ReadConfiguration<List<ProcessPair>>(It.IsAny<string>()))
-                        .Returns((List<ProcessPair>)null);
+                        .Returns(new List<ProcessPair>());
 
       // Act
       var result = _repository.LoadAll();
@@ -37,8 +37,8 @@ public class ProcessRepositoryTests
       // Arrange
       var expectedPairs = new List<ProcessPair>
         {
-            new ProcessPair { MainProcessId = 1, ChildProcessId = 10 },
-            new ProcessPair { MainProcessId = 2, ChildProcessId = 20 }
+            new () { MainProcessId = 1, ChildProcessId = 10 },
+            new () { MainProcessId = 2, ChildProcessId = 20 }
         };
       _mockConfigManager.Setup(m => m.ReadConfiguration<List<ProcessPair>>(_repository.ConfigurationFileName))
                         .Returns(expectedPairs);
