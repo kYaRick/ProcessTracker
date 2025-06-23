@@ -86,6 +86,9 @@ public class ProcessMonitor : IDisposable
    /// <returns>True if monitoring was started successfully, false otherwise</returns>
    public bool StartMonitoring(ProcessPair pair)
    {
+      if (_monitoredProcesses.Count > _settings.MaxProcesses)
+         return false;
+
       if (pair is null || pair.MainProcessId <= 0 || pair.ChildProcessId <= 0)
          return false;
 
